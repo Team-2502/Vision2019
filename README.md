@@ -3,6 +3,10 @@
 Python version: 3.6
 OpenCV version: 4.0.1
 
+# Learn OpenCV
+- [Python](https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_table_of_contents_imgproc/py_table_of_contents_imgproc.html)
+- ~~[Java (not for this project)](https://opencv-java-tutorials.readthedocs.io/en/latest/03-first-javafx-application-with-opencv.html)~~
+
 ## Setup
 
 1. Install Python 3.6 and OpenCV on your system
@@ -17,6 +21,3 @@ OpenCV version: 4.0.1
     * Depending on how you installed OpenCV your global installation may be located somewhere else
 1. Try running `import cv2` in Python
     * If it works, you're all set!
-
-Useful links:
-- [OpenCV ReadTheDocs](https://opencv-java-tutorials.readthedocs.io/en/latest/03-first-javafx-application-with-opencv.html)
