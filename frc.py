@@ -3,8 +3,9 @@ import math
 import cv2
 import numpy as np
 import scipy.ndimage
+import os
 
-AUTOGEN_IMAGE_FOLDER = "/home/ritikm/Pictures/2019_frc/autogen_images"  # TODO: fix
+AUTOGEN_IMAGE_FOLDER = "./autogen_images"
 
 # REAL_HEIGHT_FT = (5.5 * math.sin(math.radians(75.5)) + 2 * math.sin(math.radians(14.5))) / 12.0
 
@@ -17,8 +18,7 @@ VISION_TAPE_WIDTH_FT = 2 / 12
 VISION_TAPE_MIN_SEPARATION_IN = 8
 VISION_TAPE_MIN_SEPARATION_FT = VISION_TAPE_MIN_SEPARATION_IN / 12
 
-VISION_TAPE_ANGLE_TOWARD_DEG = 14.5
-VISION_TAPE_ANGLE_FROM_VERT_DEG = VISION_TAPE_ANGLE_TOWARD_DEG / 2  # Pretty sure you need to divide 14.5 by 2... although this changes rm's code function
+VISION_TAPE_ANGLE_FROM_VERT_DEG = 14.5
 
 VISION_TAPE_ANGLE_FROM_HORIZONTAL_DEG = 90 - VISION_TAPE_ANGLE_FROM_VERT_DEG
 
@@ -36,11 +36,11 @@ MID_WIDTH_FT = (TOP_WIDTH_FT + BOTTOM_WIDTH_FT) / 2
 # TODO: please explain and add variable constant
 DIAG_WIDTH_FT = np.linalg.norm(
     np.array([BOTTOM_WIDTH_FT, 0]).T +
-    np.array([2 * math.cos(math.radians(14.5)), 2 * math.sin(math.radians(14.5))]) +
-    np.array([-5.5 * math.sin(math.radians(14.5)), 5.5 * math.cos(math.radians(14.5))])
-) / 12
+    np.array([VISION_TAPE_WIDTH_FT * math.cos(math.radians(14.5)), VISION_TAPE_WIDTH_FT * math.sin(math.radians(14.5))]) +
+    np.array([-VISION_TAPE_LENGTH_FT * math.sin(math.radians(14.5)), VISION_TAPE_LENGTH_FT * math.cos(math.radians(14.5))])
+)
 
-# TODO: what is FLEN?
+
 BLENDER_FLEN = 800.6028523694872235460223543952119609884957052979378391303  # (211 * 1.83283) / REAL_HEIGHT_FT
 
 print("BLENDER_FLEN=", BLENDER_FLEN)
@@ -66,8 +66,8 @@ def estimate_angle(left_height, right_height):
     return angle
 
 
-def harris_test():  # TODO: what is a harris test?
-    base_image = cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample.png")  # TODO: fix
+def harris_test():
+    base_image = cv2.imread("./2019_vision_sample.png")  # TODO: fix
 
     base_img_gray = cv2.cvtColor(base_image, cv2.COLOR_BGR2GRAY)
 
@@ -93,7 +93,7 @@ def harris_test():  # TODO: what is a harris test?
 
 
 def harris_test2():
-    format_string = "/home/ritikm/Pictures/2019_frc/autogen_images/2019_vision_angle_{0:0.2f}.png"
+    format_string = os.path.join(AUTOGEN_IMAGE_FOLDER, "2019_vision_angle_{0:0.2f}.png")
 
     angle = 30.0
     delta = 0.5
@@ -127,7 +127,7 @@ def harris_test2():
 def get_contours(image):
     try:
         bitmask = cv2.inRange(image, (30, 30, 30), (255, 255, 255))
-    except: # TODO: PEP 8 no broad exceptions
+    except cv2.error:
         bitmask = image
 
     # harris = cv2.cornerHarris(bitmask, 2, 3, 0.04)
@@ -188,7 +188,7 @@ def calculate_angle(image):
 
 
 def get_height():
-    format_string = "/home/ritikm/Pictures/2019_frc/autogen_images/2019_vision_angle_{0:0.2f}.png"
+    format_string = os.path.join(AUTOGEN_IMAGE_FOLDER, "2019_vision_angle_{0:0.2f}.png")
 
     angle = 45.0  # * 2
     delta = 0.5
@@ -208,7 +208,7 @@ def get_height():
 
 def straighten_image():
     image = cv2.inRange(
-        cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample.png"),
+        cv2.imread("2019_frc/2019_vision_sample.png"),
         (30, 30, 30),
         (255, 255, 255)
     )
@@ -237,7 +237,7 @@ def straighten_image():
 
 
 def denoising_test():
-    noisy_image = cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample_noisy.png") # TODO: fix
+    noisy_image = cv2.imread("2019_vision_sample_noisy.png") # TODO: fix
     opening = cv2.morphologyEx(noisy_image, cv2.MORPH_OPEN, np.ones((5, 5)))
     dilation = cv2.dilate(opening, np.ones((6, 6)))
     bitmask = cv2.inRange(dilation, (1, 1, 1), (255, 255, 255))
@@ -249,7 +249,7 @@ def denoising_test():
 
 def pose_estimator(): # TODO: fix
     image = cv2.inRange(
-        cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample.png"),
+        cv2.imread("2019_vision_sample.png"),
         (30, 30, 30),
         (255, 255, 255)
     )
@@ -355,7 +355,7 @@ def pose_estimator(): # TODO: fix
 
         return ret
 
-    old_lengths = None # TODO: not used
+    old_lengths = None
     while True:
         old_lengths = lengths
 

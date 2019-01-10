@@ -1,1 +1,5 @@
 img/
+
+autogen_images/
+venv/
+.idea/*
