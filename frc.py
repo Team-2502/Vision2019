@@ -3,6 +3,7 @@ import math
 import cv2
 import numpy as np
 import scipy.ndimage
+import scipy.optimize
 import os
 
 AUTOGEN_IMAGE_FOLDER = "./autogen_images"
@@ -36,10 +37,11 @@ MID_WIDTH_FT = (TOP_WIDTH_FT + BOTTOM_WIDTH_FT) / 2
 # TODO: please explain and add variable constant
 DIAG_WIDTH_FT = np.linalg.norm(
     np.array([BOTTOM_WIDTH_FT, 0]).T +
-    np.array([VISION_TAPE_WIDTH_FT * math.cos(math.radians(14.5)), VISION_TAPE_WIDTH_FT * math.sin(math.radians(14.5))]) +
-    np.array([-VISION_TAPE_LENGTH_FT * math.sin(math.radians(14.5)), VISION_TAPE_LENGTH_FT * math.cos(math.radians(14.5))])
+    np.array(
+        [VISION_TAPE_WIDTH_FT * math.cos(math.radians(14.5)), VISION_TAPE_WIDTH_FT * math.sin(math.radians(14.5))]) +
+    np.array(
+        [-VISION_TAPE_LENGTH_FT * math.sin(math.radians(14.5)), VISION_TAPE_LENGTH_FT * math.cos(math.radians(14.5))])
 )
-
 
 BLENDER_FLEN = 800.6028523694872235460223543952119609884957052979378391303  # (211 * 1.83283) / REAL_HEIGHT_FT
 
@@ -155,7 +157,25 @@ def get_landmark_points(image):
     tops = [min(contour, key=lambda x: x[1]) for contour in contours]
     bots = [max(contour, key=lambda x: x[1]) for contour in contours]
 
-    return tops + bots
+    landmark_points = tops + bots
+    landmark_points_dict = {}
+
+    landmark_points.sort(key=lambda x: np.linalg.norm(x))
+
+    landmark_points_dict["top_left"] = landmark_points[0]
+    landmark_points_dict["bottom_right"] = landmark_points[-1]
+
+    landmark_points = landmark_points[1:3]
+    landmark_points.sort(key=lambda x: x[0])
+
+    landmark_points_dict["bottom_left"] = landmark_points[0]
+    landmark_points_dict["top_right"] = landmark_points[1]
+
+    i_to_index = ["top_left", "top_right", "bottom_left", "bottom_right"]
+
+    u = np.array([landmark_points_dict[index] for index in i_to_index])
+
+    return u
 
 
 def calculate_angle(image):
@@ -237,7 +257,7 @@ def straighten_image():
 
 
 def denoising_test():
-    noisy_image = cv2.imread("2019_vision_sample_noisy.png") # TODO: fix
+    noisy_image = cv2.imread("2019_vision_sample_noisy.png")  # TODO: fix
     opening = cv2.morphologyEx(noisy_image, cv2.MORPH_OPEN, np.ones((5, 5)))
     dilation = cv2.dilate(opening, np.ones((6, 6)))
     bitmask = cv2.inRange(dilation, (1, 1, 1), (255, 255, 255))
@@ -247,18 +267,13 @@ def denoising_test():
     cv2.imwrite("abcd.png", dilation)
 
 
-def pose_estimator(): # TODO: fix
-    image = cv2.inRange(
-        cv2.imread("2019_vision_sample.png"),
-        (30, 30, 30),
-        (255, 255, 255)
-    )
-
+def pose_estimator(image):
     focal_length = 35 * 0.00328084  # feet
     sensor_width = 32.0 * 0.00328084  # feet
     sensor_height = 18.0 * 0.00328084  # feet
-    pixel_width = 1440
-    pixel_height = 720
+
+    pixel_width = image.shape[1]
+    pixel_height = image.shape[0]
     landmark_points_pixels = get_landmark_points(image)  # Points A 1-4
     landmark_points = [np.array([sensor_width * wid / pixel_width, sensor_height * height / pixel_height, focal_length])
                        for wid, height in landmark_points_pixels]
@@ -277,74 +292,69 @@ def pose_estimator(): # TODO: fix
     landmark_points_dict["bottom_left"] = landmark_points[0]
     landmark_points_dict["top_right"] = landmark_points[1]
 
-    # return
-
     i_to_index = ["top_left", "top_right", "bottom_left", "bottom_right"]
 
-    lengths = np.zeros((4,))
+    u = np.array([landmark_points_dict[index] / np.linalg.norm(landmark_points_dict[index]) for index in i_to_index])
+
+
+    # lengths = np.zeros((4,))
 
     A = [
-        np.array([0, 0]),
-        np.array([0, TOP_WIDTH_FT]),
-        np.array([REAL_HEIGHT_FT, 0]),
-        np.array([REAL_HEIGHT_FT, BOTTOM_WIDTH_FT]),
+        np.array([0, 0, 0]),
+        np.array([0, TOP_WIDTH_FT, 0]),
+        np.array([REAL_HEIGHT_FT, 0, 0]),
+        np.array([REAL_HEIGHT_FT, BOTTOM_WIDTH_FT, 0]),
     ]
-
-    u = np.array([landmark_point / np.linalg.norm(landmark_point) for landmark_point in landmark_points])
-    print("u-shape", u.shape)
-    print(u)
-    print(landmark_points)
 
     def a_delta(i, j):
         return A[i] - A[j]
 
-    # def u(i):
-    #     return landmark_points[i] / np.linalg.norm(landmark_points[i])
-
-    def error(i, j):
+    def error(i, j, lengths):
         return (lengths[i] * lengths[i] + lengths[j] * lengths[j] - 2 * lengths[i] * lengths[j] *
                 (u[i].dot(u[j]))) - np.linalg.norm(a_delta(i, j)) ** 2
 
-    def error_deriv(i, j):
+    def error_deriv(i, j, lengths):
         return 2 * lengths[i] + 2 * lengths[j] * (u[i].dot(u[j]))
 
-    def g():
-        estimate = np.cross((lengths[2] * u[2] - lengths[3] * u[3]), (lengths[4] * u[4] - lengths[3] * u[3])) \
-            .dot((lengths[1] * u[1] - lengths[3] * u[3]))
-
-        actual = np.cross(a_delta(2, 3), a_delta(4, 3)).dot(a_delta(1, 3))
+    def g(lengths):
+        estimate = np.cross((lengths[1] * u[1] - lengths[2] * u[2]), (lengths[3] * u[3] - lengths[2] * u[2])) \
+            .dot((lengths[0] * u[0] - lengths[2] * u[2]))
+        actual = np.cross(a_delta(1, 2), a_delta(3, 2)).dot(a_delta(0, 2))
+        # print("actual", np.cross(a_delta(1, 2), a_delta(3, 2)))
+        # print("acgtual", actual)
         return estimate - actual
 
-    def get_error_vec():
+    def get_error_vec(lengths):
         return np.array([
-            error(1, 2), error(1, 3), error(1, 4), error(2, 3), error(2, 4), error(3, 4), g()
+            error(0, 1, lengths), error(0, 2, lengths), error(0, 3, lengths), error(1, 2, lengths),
+            error(1, 3, lengths), error(2, 3, lengths), g(lengths)
         ]).T
 
-    def get_jacobian_row(a, b):
+    def get_jacobian_row(a, b, lengths):
         row = np.zeros((4,))
-        row[a] = error_deriv(a, b)
-        row[b] = error_deriv(b, a)
+        row[a] = error_deriv(a, b, lengths)
+        row[b] = error_deriv(b, a, lengths)
         return row.T
 
-    def get_error_jacobian():
-        ret = np.zeros((7, 5))
-        ret[0] = get_jacobian_row(1, 2)
-        ret[1] = get_jacobian_row(1, 3)
-        ret[2] = get_jacobian_row(1, 4)
-        ret[3] = get_jacobian_row(2, 3)
-        ret[4] = get_jacobian_row(2, 4)
-        ret[5] = get_jacobian_row(3, 4)
+    def get_error_jacobian(lengths):
+        ret = np.zeros((7, 4))
+        ret[0] = get_jacobian_row(0, 1, lengths)
+        ret[1] = get_jacobian_row(0, 2, lengths)
+        ret[2] = get_jacobian_row(0, 3, lengths)
+        ret[3] = get_jacobian_row(1, 2, lengths)
+        ret[4] = get_jacobian_row(1, 3, lengths)
+        ret[5] = get_jacobian_row(2, 3, lengths)
 
         def g_prime():
-            f1_prime = u[2] - u[3]
-            f2_prime = u[4] - u[3]
+            f1_prime = u[1] - u[2]
+            f2_prime = u[3] - u[2]
 
-            f_prime = np.cross(f1_prime(), (lengths[4] * u[4] - lengths[3] * u[3])) + np.cross(
-                (lengths[2] * u[2] - lengths[3] * u[3]), f2_prime())
-            f = np.cross((lengths[2] * u[2] - lengths[3] * u[3]), (lengths[4] * u[4] - lengths[3] * u[3]))
+            f_prime = np.cross(f1_prime, (lengths[3] * u[3] - lengths[2] * u[2])) + np.cross(
+                (lengths[1] * u[1] - lengths[2] * u[2]), f2_prime)
+            f = np.cross((lengths[1] * u[1] - lengths[2] * u[2]), (lengths[3] * u[3] - lengths[2] * u[2]))
 
-            g1_prime = u[1] - u[3]
-            g1 = (lengths[1] * u[1] - lengths[3] * u[3])
+            g1_prime = u[0] - u[2]
+            g1 = (lengths[0] * u[0] - lengths[2] * u[2])
 
             lhs = f_prime.dot(g1)
             rhs = f.dot(g1_prime)
@@ -355,20 +365,139 @@ def pose_estimator(): # TODO: fix
 
         return ret
 
-    old_lengths = None
-    while True:
-        old_lengths = lengths
-
-        J = get_error_jacobian()
-        E = get_error_vec()
-        h = np.linalg.inv((J.T * J)) * J.T * E
-
-        lengths = lengths - h
-
-        print("new lengths: ", lengths)
-        if np.linalg.norm(lengths - old_lengths) < 0.001:
-            print("done")
-            break
+    result = scipy.optimize.least_squares(get_error_vec, np.ones((4,)) / 3, get_error_jacobian)
+    print(result.x)
+    return result
 
 
-pose_estimator()
+def pose_estimator_test():
+    image = cv2.inRange(
+        cv2.imread("2019_vision_sample.png"),
+        (30, 30, 30),
+        (255, 255, 255)
+    )
+
+    format_string = os.path.join(AUTOGEN_IMAGE_FOLDER, "2019_vision_angle_{0:0.2f}.png")
+
+    angle = 30.0
+    delta = 0.5
+
+    print("top, bottom, angle")
+    while angle <= 150.0:
+        image = cv2.inRange(
+            cv2.imread(format_string.format(angle)),
+            (30, 30, 30),
+            (255, 255, 255)
+        )
+
+        pose_estimator(image)
+
+        angle += delta
+
+
+def pnp_test():
+    format_string = os.path.join(AUTOGEN_IMAGE_FOLDER, "2019_vision_angle_{0:0.2f}.png")
+
+    angle = 30
+    delta = 1
+
+    ar_verts = np.float32([[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0],
+                           [0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1],
+                           [0, 0.5, 2], [1, 0.5, 2]]) / 10
+    ar_edges = [(0, 1), (1, 2), (2, 3), (3, 0),
+                (4, 5), (5, 6), (6, 7), (7, 4),
+                (0, 4), (1, 5), (2, 6), (3, 7),
+                (4, 8), (5, 8), (6, 9), (7, 9), (8, 9)]
+
+    out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), 20.0, (720, 360))
+
+    while angle < 150:
+        image = cv2.imread(format_string.format(angle))
+        image = cv2.inRange(image, (30, 30, 30),
+                            (255, 255, 255)
+                            )
+
+        corners = np.array(get_landmark_points(image), dtype=np.float32).reshape(-1, 1, 2)
+        if False:  # shows corners
+            image2 = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+            for corner in corners:
+                image2 = cv2.circle(image2,
+                                    tuple(corner),
+                                    6,
+                                    (0, 255, 0),
+                                    thickness=5)
+            cv2.imshow("a", image2)
+            cv2.waitKey()
+
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+        down_left_vec = np.array([-5.5 * math.cos(math.radians(75.5)), -5.5 * math.sin(math.radians(75.5))])
+        down_right_vec = np.array([2 * math.cos(math.radians(14.5)), -2 * math.sin(math.radians(14.5))])
+        right_vec = np.array([0, BOTTOM_WIDTH_FT])
+        objp = np.array([
+            [0, 0, 0],
+            list(down_left_vec + down_right_vec) + [0],
+            [REAL_HEIGHT_FT, 0, 0],
+            list(down_left_vec + down_right_vec + right_vec) + [0],
+        ])
+
+        axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+
+        corners2 = cv2.cornerSubPix(image,
+                                    corners,
+                                    (5, 5), (-1, -1),
+                                    criteria)
+
+        if True:  # shows corners
+            image2 = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+            for corner in corners2.reshape(-1, 2):
+                image2 = cv2.circle(image2,
+                                    tuple(corner),
+                                    6,
+                                    (0, 255, 0),
+                                    thickness=1)
+            cv2.imshow("a", image2)
+            cv2.waitKey()
+
+        camera_matrix = np.zeros((3, 3))
+        camera_matrix[0, 0] = 787.5
+        camera_matrix[0, 2] = 360
+        camera_matrix[1, 1] = 700
+        camera_matrix[1, 2] = 180
+        camera_matrix[2, 2] = 1
+
+        rt = np.zeros((3, 4))
+        rt[0, 1] = 1
+        rt[1, 2] = -1
+        rt[2, 0] = -1
+        rt[2, 3] = 1.8328
+
+        p = np.array([(-359.9998, 787.5001, -0.0000, 659.8187),
+                      (-179.9999, 0.0000, -700.0001, 329.9093),
+                      (-1.0000, 0.0000, -0.0000, 1.8328)])
+
+        distortion = np.array([0, 0, 0, 0]).reshape(-1, 1)
+        # Find the rotation and translation vectors.
+        retval, rvecs, tvecs, inliers = cv2.solvePnPRansac(objp, corners2, camera_matrix, distortion)
+        # project 3D points to image plane
+
+        imgpts, jac = cv2.projectPoints(ar_verts, rvecs, tvecs, camera_matrix, None)
+        imgpts = imgpts.reshape(-1, 2)
+        def draw(img, imgpts):
+            for i, j in ar_edges:
+                print(imgpts[i].ravel())
+                print(imgpts[j])
+                img = cv2.line(img, tuple(imgpts[i]), tuple(imgpts[j]), (255, 0, 0), 5)
+            # img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0, 255, 0), 5)
+            # img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0, 0, 255), 5)
+            return img
+
+        img = cv2.drawFrameAxes(cv2.cvtColor(image, cv2.COLOR_GRAY2RGB), camera_matrix, None, rvecs, tvecs, 1, 3)
+        # img = draw(cv2.cvtColor(image, cv2.COLOR_GRAY2RGB), imgpts)
+        cv2.imshow('img', img)
+        out.write(img)
+        angle += delta
+    out.release()
+
+
+pnp_test()
