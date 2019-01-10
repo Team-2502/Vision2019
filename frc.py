@@ -1,27 +1,47 @@
-import collections
+import math
 
 import cv2
 import numpy as np
 import scipy.ndimage
-import os
-import math
 
-AUTOGEN_IMAGE_FOLDER = "/home/ritikm/Pictures/2019_frc/autogen_images"
+AUTOGEN_IMAGE_FOLDER = "/home/ritikm/Pictures/2019_frc/autogen_images"  # TODO: fix
 
 # REAL_HEIGHT_FT = (5.5 * math.sin(math.radians(75.5)) + 2 * math.sin(math.radians(14.5))) / 12.0
-REAL_HEIGHT_FT = 5.5 * math.sin(math.radians(75.5)) / 12
-TOP_WIDTH_FT = (4 * math.sin(math.radians(75.5)) + 8) / 12
-BOT_WIDTH_FT = (11 * math.sin(math.radians(14.5)) + 8) / 12
+
+VISION_TAPE_LENGTH_IN = 5.5
+VISION_TAPE_LENGTH_FT = VISION_TAPE_LENGTH_IN / 12
+
+VISION_TAPE_WIDTH_IN = 2
+VISION_TAPE_WIDTH_FT = 2 / 12
+
+VISION_TAPE_MIN_SEPARATION_IN = 8
+VISION_TAPE_MIN_SEPARATION_FT = VISION_TAPE_MIN_SEPARATION_IN / 12
+
+VISION_TAPE_ANGLE_TOWARD_DEG = 14.5
+VISION_TAPE_ANGLE_FROM_VERT_DEG = VISION_TAPE_ANGLE_TOWARD_DEG / 2  # Pretty sure you need to divide 14.5 by 2... although this changes rm's code function
+
+VISION_TAPE_ANGLE_FROM_HORIZONTAL_DEG = 90 - VISION_TAPE_ANGLE_FROM_VERT_DEG
+
+VISION_TAPE_ANGLE_FROM_HORIZONTAL_RAD = math.radians(VISION_TAPE_ANGLE_FROM_HORIZONTAL_DEG)
+
+REAL_HEIGHT_FT = VISION_TAPE_LENGTH_FT * math.sin(VISION_TAPE_ANGLE_FROM_HORIZONTAL_RAD)
+TOP_WIDTH_FT = (2 * VISION_TAPE_WIDTH_FT * math.sin(VISION_TAPE_ANGLE_FROM_HORIZONTAL_RAD) +
+                VISION_TAPE_MIN_SEPARATION_FT)
+
+BOTTOM_WIDTH_FT = (2 * VISION_TAPE_LENGTH_FT * math.sin(math.radians(VISION_TAPE_ANGLE_FROM_VERT_DEG)) +
+                   VISION_TAPE_MIN_SEPARATION_FT)
+
+MID_WIDTH_FT = (TOP_WIDTH_FT + BOTTOM_WIDTH_FT) / 2
+
+# TODO: please explain and add variable constant
 DIAG_WIDTH_FT = np.linalg.norm(
-    np.array([BOT_WIDTH_FT, 0]).T +
+    np.array([BOTTOM_WIDTH_FT, 0]).T +
     np.array([2 * math.cos(math.radians(14.5)), 2 * math.sin(math.radians(14.5))]) +
     np.array([-5.5 * math.sin(math.radians(14.5)), 5.5 * math.cos(math.radians(14.5))])
 ) / 12
 
-# REAL_HEIGHT_FT = 5.5 / 12
+# TODO: what is FLEN?
 BLENDER_FLEN = 800.6028523694872235460223543952119609884957052979378391303  # (211 * 1.83283) / REAL_HEIGHT_FT
-
-MID_WIDTH = (4 * math.cos(math.radians(14.5)) + 8) / 12.0
 
 print("BLENDER_FLEN=", BLENDER_FLEN)
 
@@ -37,7 +57,7 @@ def estimate_angle(left_height, right_height):
     left_height = get_dist(left_height)
     right_height = get_dist(right_height)
 
-    c = MID_WIDTH
+    c = MID_WIDTH_FT
     a = min(left_height, right_height)
     b = max(left_height, right_height)
 
@@ -46,8 +66,8 @@ def estimate_angle(left_height, right_height):
     return angle
 
 
-def harristest():
-    base_image = cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample.png")
+def harris_test():  # TODO: what is a harris test?
+    base_image = cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample.png")  # TODO: fix
 
     base_img_gray = cv2.cvtColor(base_image, cv2.COLOR_BGR2GRAY)
 
@@ -72,7 +92,7 @@ def harristest():
     print(dst.max())
 
 
-def harristest2():
+def harris_test2():
     format_string = "/home/ritikm/Pictures/2019_frc/autogen_images/2019_vision_angle_{0:0.2f}.png"
 
     angle = 30.0
@@ -107,7 +127,7 @@ def harristest2():
 def get_contours(image):
     try:
         bitmask = cv2.inRange(image, (30, 30, 30), (255, 255, 255))
-    except:
+    except: # TODO: PEP 8 no broad exceptions
         bitmask = image
 
     # harris = cv2.cornerHarris(bitmask, 2, 3, 0.04)
@@ -167,7 +187,7 @@ def calculate_angle(image):
     return angle
 
 
-def getHeight():
+def get_height():
     format_string = "/home/ritikm/Pictures/2019_frc/autogen_images/2019_vision_angle_{0:0.2f}.png"
 
     angle = 45.0  # * 2
@@ -216,8 +236,8 @@ def straighten_image():
     print(get_dist(left_height))
 
 
-def denoisingtest():
-    noisy_image = cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample_noisy.png")
+def denoising_test():
+    noisy_image = cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample_noisy.png") # TODO: fix
     opening = cv2.morphologyEx(noisy_image, cv2.MORPH_OPEN, np.ones((5, 5)))
     dilation = cv2.dilate(opening, np.ones((6, 6)))
     bitmask = cv2.inRange(dilation, (1, 1, 1), (255, 255, 255))
@@ -227,7 +247,7 @@ def denoisingtest():
     cv2.imwrite("abcd.png", dilation)
 
 
-def pose_estimator():
+def pose_estimator(): # TODO: fix
     image = cv2.inRange(
         cv2.imread("/home/ritikm/Pictures/2019_frc/2019_vision_sample.png"),
         (30, 30, 30),
@@ -261,13 +281,13 @@ def pose_estimator():
 
     i_to_index = ["top_left", "top_right", "bottom_left", "bottom_right"]
 
-    lengths = np.zeros((4, ))
+    lengths = np.zeros((4,))
 
     A = [
         np.array([0, 0]),
         np.array([0, TOP_WIDTH_FT]),
         np.array([REAL_HEIGHT_FT, 0]),
-        np.array([REAL_HEIGHT_FT, BOT_WIDTH_FT]),
+        np.array([REAL_HEIGHT_FT, BOTTOM_WIDTH_FT]),
     ]
 
     u = np.array([landmark_point / np.linalg.norm(landmark_point) for landmark_point in landmark_points])
@@ -289,7 +309,7 @@ def pose_estimator():
         return 2 * lengths[i] + 2 * lengths[j] * (u[i].dot(u[j]))
 
     def g():
-        estimate = np.cross((lengths[2] * u[2] - lengths[3] * u[3]), (lengths[4] * u[4] - lengths[3] * u[3]))  \
+        estimate = np.cross((lengths[2] * u[2] - lengths[3] * u[3]), (lengths[4] * u[4] - lengths[3] * u[3])) \
             .dot((lengths[1] * u[1] - lengths[3] * u[3]))
 
         actual = np.cross(a_delta(2, 3), a_delta(4, 3)).dot(a_delta(1, 3))
@@ -301,7 +321,7 @@ def pose_estimator():
         ]).T
 
     def get_jacobian_row(a, b):
-        row = np.zeros((4, ))
+        row = np.zeros((4,))
         row[a] = error_deriv(a, b)
         row[b] = error_deriv(b, a)
         return row.T
@@ -319,7 +339,8 @@ def pose_estimator():
             f1_prime = u[2] - u[3]
             f2_prime = u[4] - u[3]
 
-            f_prime = np.cross(f1_prime(), (lengths[4] * u[4] - lengths[3] * u[3])) + np.cross((lengths[2] * u[2] - lengths[3] * u[3]), f2_prime())
+            f_prime = np.cross(f1_prime(), (lengths[4] * u[4] - lengths[3] * u[3])) + np.cross(
+                (lengths[2] * u[2] - lengths[3] * u[3]), f2_prime())
             f = np.cross((lengths[2] * u[2] - lengths[3] * u[3]), (lengths[4] * u[4] - lengths[3] * u[3]))
 
             g1_prime = u[1] - u[3]
@@ -334,7 +355,7 @@ def pose_estimator():
 
         return ret
 
-    old_lengths = None
+    old_lengths = None # TODO: not used
     while True:
         old_lengths = lengths
 
@@ -344,17 +365,10 @@ def pose_estimator():
 
         lengths = lengths - h
 
-        print("new lengths: ",  lengths)
+        print("new lengths: ", lengths)
         if np.linalg.norm(lengths - old_lengths) < 0.001:
             print("done")
             break
 
 
-
-
-
 pose_estimator()
-# straighten_image()
-# getHeight()
-# harristest2()
-# denoisingtest()
