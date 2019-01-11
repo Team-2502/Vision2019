@@ -5,6 +5,8 @@ import numpy as np
 import scipy.ndimage
 import scipy.optimize
 import os
+import constants
+import pipeline
 
 AUTOGEN_IMAGE_FOLDER = "./autogen_images"
 
@@ -187,25 +189,10 @@ def get_landmark_points(image):
     tops = [min(contour, key=lambda x: x[1]) for contour in contours]
     bots = [max(contour, key=lambda x: x[1]) for contour in contours]
 
-    landmark_points = tops + bots
-    landmark_points_dict = {}
+    tops.sort(key= lambda x: x[0])
+    bots.sort(key= lambda x: x[0])
 
-    landmark_points.sort(key=lambda x: np.linalg.norm(x))
-
-    landmark_points_dict["top_left"] = landmark_points[0]
-    landmark_points_dict["bottom_right"] = landmark_points[-1]
-
-    landmark_points = landmark_points[1:3]
-    landmark_points.sort(key=lambda x: x[0])
-
-    landmark_points_dict["bottom_left"] = landmark_points[0]
-    landmark_points_dict["top_right"] = landmark_points[1]
-
-    i_to_index = ["top_left", "top_right", "bottom_left", "bottom_right"]
-
-    u = np.array([landmark_points_dict[index] for index in i_to_index])
-
-    return u
+    return tops + bots
 
 
 def calculate_angle(image):
@@ -255,6 +242,8 @@ def test_straighten_image():
     """
     takes a picture of the vision target splits it in half, rotates both pieces of tape so they are vert (and parallel)
     and merges them back
+
+    kinda useless
     :return:
     """
 
@@ -296,7 +285,7 @@ def test_straighten_image():
     bots = [max(contour, key=lambda a: a[1]) for contour in contours]
 
     # The axis system is dum so we (top is lower value than bottom)
-    left_height = bots[0][1] - tops[0][1] # TODO: is this left tape?
+    left_height = bots[0][1] - tops[0][1]  # TODO: is this left tape?
 
     print(get_dist_ft(left_height))
 
@@ -306,7 +295,7 @@ def denoising_test():
     removes noise from images
     :return:
     """
-    noisy_image = cv2.imread("2019_vision_sample_noisy.png") # TODO: fix
+    noisy_image = cv2.imread("2019_vision_sample_noisy.png")  # TODO: the amount of noise in this image is unrealistically high
 
     # https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
     # opening is useful for removing noise (erodes and then dilates)
@@ -328,6 +317,11 @@ def denoising_test():
 
 
 def pose_estimator(): # TODO: fix
+    """
+    Broken right now.
+    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.37.9567&rep=rep1&type=pdf
+    :return: None
+    """
     image = cv2.inRange(
         cv2.imread("2019_vision_sample.png"),
         (30, 30, 30),
@@ -503,10 +497,13 @@ def pnp_test():
         right_vec = np.array([0, BOTTOM_WIDTH_FT])
         objp = np.array([
             [0, 0, 0],
-            list(down_left_vec + down_right_vec) + [0],
             [REAL_HEIGHT_FT, 0, 0],
+            list(down_left_vec + down_right_vec) + [0],
             list(down_left_vec + down_right_vec + right_vec) + [0],
         ])
+
+        print(objp)
+        print(constants.VISION_TAPE_OBJECT_POINTS)
 
         axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
 
@@ -545,26 +542,79 @@ def pnp_test():
 
         distortion = np.array([0, 0, 0, 0]).reshape(-1, 1)
         # Find the rotation and translation vectors.
-        retval, rvecs, tvecs, inliers = cv2.solvePnPRansac(objp, corners2, camera_matrix, distortion)
+        retval, rvecs, tvecs = cv2.solvePnPRansac(objp, corners2, camera_matrix, distortion)
         # project 3D points to image plane
 
-        imgpts, jac = cv2.projectPoints(ar_verts, rvecs, tvecs, camera_matrix, None)
+        imgpts, jac = cv2.projectPoints(np.array([[math.cos(math.radians(75.5)), math.sin(math.radians(75.5)), 0], ]), rvecs, tvecs, camera_matrix, None)
         imgpts = imgpts.reshape(-1, 2)
         def draw(img, imgpts):
-            for i, j in ar_edges:
-                print(imgpts[i].ravel())
-                print(imgpts[j])
-                img = cv2.line(img, tuple(imgpts[i]), tuple(imgpts[j]), (255, 0, 0), 5)
+            for pt in imgpts:
+                img = cv2.circle(image2, tuple(int(x) for x in pt), 6, (0, 255, 0), thickness=30)
+            # for i, j in ar_edges:
+            #     print(imgpts[i].ravel())
+            #     print(imgpts[j])
+            #     img = cv2.line(img, tuple(imgpts[i]), tuple(imgpts[j]), (255, 0, 0), 5)
             # img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0, 255, 0), 5)
             # img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0, 0, 255), 5)
             return img
 
         img = cv2.drawFrameAxes(cv2.cvtColor(image, cv2.COLOR_GRAY2RGB), camera_matrix, None, rvecs, tvecs, 1, 3)
-        # img = draw(cv2.cvtColor(image, cv2.COLOR_GRAY2RGB), imgpts)
+        # img = draw(img, imgpts)
         cv2.imshow('img', img)
         out.write(img)
         angle += delta
     out.release()
 
 
-pnp_test()
+def trackbar_hsv():
+    """
+    Meant to easily find suitable inRange values
+    :return: None
+    """
+    image = cv2.imread("cam_image.png")  # picture from my webcam
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    low = [65, 0, 50]
+    high = [177, 50, 100]
+
+    im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
+        hsv_image,
+        tuple(low),
+        tuple(high)
+    )
+    def on_trackbar(name, val, low, high):
+        if name == "low_h":
+            low[0] = val
+        elif name == "low_s":
+            low[1] = val
+        elif name == "low_v":
+            low[2] = val
+        elif name == "high_h":
+            high[0] = val
+        elif name == "high_s":
+            high[1] = val
+        elif name == "high_v":
+            high[2] = val
+
+        print("({}, {}, {}), ({}, {}, {})".format(*low, *high))
+        im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
+            hsv_image,
+            tuple(low),
+            tuple(high)
+        )
+        cv2.imshow("bitmask", im)
+    cv2.imshow("bitmask", im)
+    cv2.imshow("orig", image)
+    smaller_max = 255
+
+
+    cv2.createTrackbar('low_h', "bitmask", 0, 360, lambda v: on_trackbar("low_h", v, low, high))
+    cv2.createTrackbar('low_s', "bitmask", 0, smaller_max, lambda v: on_trackbar("low_s", v, low, high))
+    cv2.createTrackbar('low_v', "bitmask", 0, smaller_max, lambda v: on_trackbar("low_v", v, low, high))
+    cv2.createTrackbar('high_h', "bitmask", 0, 360, lambda v: on_trackbar("high_h", v, low, high))
+    cv2.createTrackbar('high_s', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_s", v, low, high))
+    cv2.createTrackbar('high_v', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_v", v, low, high))
+
+    cv2.waitKey()
+
+trackbar_hsv()
