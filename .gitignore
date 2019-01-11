@@ -3,3 +3,5 @@ img/
 autogen_images/
 venv/
 .idea/*
+__pycache__/
+*.pickle
