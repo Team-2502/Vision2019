@@ -10,6 +10,7 @@ parser.add_argument("fname", help="The name of the file to store the calibration
 args = parser.parse_args()
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -28,7 +29,7 @@ cap = cv2.VideoCapture(0)
 
 logging.info("Initialized camera capture stream")
 
-while len(imgpoints) < 30:
+while len(imgpoints) < 20:
     _, img = cap.read()
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # Find the chess board corners
