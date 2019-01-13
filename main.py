@@ -51,5 +51,6 @@ if __name__ == '__main__':
 
         cv2.imshow("corner_img", corner_img)
 
-        print(euler_angles)
+        # print(euler_angles)
+        print("dist: {0:0.2f} | angle (rad): {1:0.2f}".format(dist, euler_angles[1]))
         cv2.waitKey(1000 // 30)
