@@ -30,12 +30,19 @@ class VisionPipeline:
         self.logger.debug("Loaded calibration results")
         self.logger.debug("Synthetic: " + str(synthetic))
 
-    def process_image(self, image: np.array) -> Tuple[np.array, np.array, np.array, np.array]:
+    def process_image(self, image: np.array) -> Tuple[np.array, np.array, np.array, np.array, float, np.array]:
         """
         Find the rotation and translation vectors that convert
         from the world coordinate system into the camera coordinate system
         :param image: The image to process (3 channel)
-        :return: The contours, corner locations, rotation vector and translation vector in a 4-tuple
+        :return: The return tuple contains the following:
+            - The list of contours
+            - The list of the pixel locations of the corners of the vision tape
+            - The Rodrigues' rotation vector to transform into the model coordinates
+            - The translation vector to transform into the model coordinates
+            - The distance to the center of the vision tape
+            - The euler (really tait-bryan) angles (x-y-z) that represent the rotation of the model coordinates.
+                - A y-angle of 0 degrees means that the vision tapes are parallel to the camera
         """
         if not self.synthetic:
             bitmask = self._generate_bitmask_camera(image)
@@ -44,8 +51,9 @@ class VisionPipeline:
 
         contours = self._get_contours(bitmask)
         corners_subpixel = self._get_corners(contours, bitmask)
-        rvecs, tvecs = self._estimate_pose(corners_subpixel)
-        return contours, corners_subpixel.reshape(-1, 2), rvecs, tvecs
+        rvec, tvec, dist = self._estimate_pose(corners_subpixel)
+        euler_angles = self._rodrigues_to_euler_angles(rvec)
+        return contours, corners_subpixel.reshape(-1, 2), rvec, tvec, dist, euler_angles
 
     def _generate_bitmask_camera(self, image: np.array) -> np.array:
         """
@@ -115,7 +123,7 @@ class VisionPipeline:
 
         return corners_subpixel
 
-    def _estimate_pose(self, corners_subpixel: np.array) -> Tuple[np.array, np.array]:  # TODO: Fix
+    def _estimate_pose(self, corners_subpixel: np.array) -> Tuple[np.array, np.array, float]:  # TODO: Fix
         """
         Estimate the pose of the vision target
         :param corners_subpixel:
@@ -124,13 +132,38 @@ class VisionPipeline:
 
         self.logger.debug("Running solvePnPRansac")
 
-        # TODO: enable useExtrinsicGuess and save last iterations rvec/tvec
-        # TODO: Do something useful with rvecs/tvecs
-        retval, rvecs, tvecs, inliers = cv2.solvePnPRansac(constants.VISION_TAPE_OBJECT_POINTS,
-                                                           corners_subpixel,
-                                                           self.calibration_info.camera_matrix,
-                                                           self.calibration_info.dist_coeffs)
-        return rvecs, tvecs
+        # NOTE: If using solvePnPRansac, retvals are retval, rvec, tvec, inliers
+        retval, rvec, tvec = cv2.solvePnP(constants.VISION_TAPE_OBJECT_POINTS,
+                                          corners_subpixel,
+                                          self.calibration_info.camera_matrix,
+                                          self.calibration_info.dist_coeffs)
+
+        dist = np.linalg.norm(tvec)
+        return rvec, tvec, dist
+
+    def _rodrigues_to_euler_angles(self, rvec):
+        """
+        Given the Rodrigues' rotation vector given by cv2.solvePnP,
+        :param rvec: The Rodrigues' rotation vectpor
+        :return: The euler (x-y-z) angles (in radians) of the vision tape relative to the camera plane
+        """
+        mat, jac = cv2.Rodrigues(rvec)
+
+        sy = np.sqrt(mat[0, 0] * mat[0, 0] + mat[1, 0] * mat[1, 0])
+
+        singular = sy < 1e-6
+
+        if not singular:
+            x = np.math.atan2(mat[2, 1], mat[2, 2])
+            y = np.math.atan2(-mat[2, 0], sy)
+            z = np.math.atan2(mat[1, 0], mat[0, 0])
+
+        else:
+            x = np.math.atan2(-mat[1, 2], mat[1, 1])
+            y = np.math.atan2(-mat[2, 0], sy)
+            z = 0
+
+        return np.array([x, y, z])
 
 
 def save_calibration_results(camera_matrix: np.array,
