@@ -566,6 +566,7 @@ def pnp_test():
     out.release()
 
 
+# TODO: Create a separate script just for trackbar_hsv.
 def trackbar_hsv():
     """
     Meant to easily find suitable inRange values
@@ -574,8 +575,8 @@ def trackbar_hsv():
     image = cv2.imread("cam_image.png")  # picture from my webcam
     hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    low = [65, 0, 50]
-    high = [177, 50, 100]
+    low = [0, 0, 0]
+    high = [0, 0, 0]
 
     im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
         hsv_image,
@@ -596,13 +597,6 @@ def trackbar_hsv():
         elif name == "high_v":
             high[2] = val
 
-        print("({}, {}, {}), ({}, {}, {})".format(*low, *high))
-        im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
-            hsv_image,
-            tuple(low),
-            tuple(high)
-        )
-        cv2.imshow("bitmask", im)
     cv2.imshow("bitmask", im)
     cv2.imshow("orig", image)
     smaller_max = 255
@@ -614,6 +608,19 @@ def trackbar_hsv():
     cv2.createTrackbar('high_h', "bitmask", 0, 360, lambda v: on_trackbar("high_h", v, low, high))
     cv2.createTrackbar('high_s', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_s", v, low, high))
     cv2.createTrackbar('high_v', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_v", v, low, high))
+
+    cap = cv2.VideoCapture(0)
+    while True:
+        ret, frame = cap.read()
+        frame = cv2.bitwise_not(frame)
+        cv2.imshow("orig", frame)
+        im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
+            cv2.cvtColor(frame, cv2.COLOR_BGR2HSV),
+            tuple(low),
+            tuple(high)
+        )
+        cv2.imshow("bitmask", im)
+        cv2.waitKey(1000 // 30)
 
     cv2.waitKey()
 
