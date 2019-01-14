@@ -3,6 +3,10 @@
 Python version: 3.6
 OpenCV version: 4.0.1
 
+This vision code is designed to locate the vision target and find its pose relative to the robot (i.e angle + direction)
+
+See main.py for usage
+
 # Learn OpenCV
 - [Python](https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_table_of_contents_imgproc/py_table_of_contents_imgproc.html)
 - ~~[Java (not for this project)](https://opencv-java-tutorials.readthedocs.io/en/latest/03-first-javafx-application-with-opencv.html)~~
