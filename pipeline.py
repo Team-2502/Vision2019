@@ -7,7 +7,9 @@ import logging
 import cv2
 import pickle
 
-CalibrationResults = collections.namedtuple("CalibrationResults", ["camera_matrix", "dist_coeffs", "rvecs", "tvecs"])
+CalibrationResults = collections.namedtuple("CalibrationResults",
+                                            ["camera_matrix", "dist_coeffs", "rvecs", "tvecs", "fisheye"])
+CalibrationResults.__new__.__defaults__ = (False,)  # Default for rightmost constructor argument is now False
 
 
 class VisionPipeline:
@@ -29,6 +31,7 @@ class VisionPipeline:
         self.calibration_info = load_calibration_results(calib_fname)
         self.logger.debug("Loaded calibration results")
         self.logger.debug("Synthetic: " + str(synthetic))
+        self.logger.debug("Fisheye: " + str(self.calibration_info.fisheye))
 
     def process_image(self, image: np.array) -> Tuple[np.array, np.array, np.array, np.array, float, np.array]:
         """
@@ -133,10 +136,18 @@ class VisionPipeline:
         self.logger.debug("Running solvePnPRansac")
 
         # NOTE: If using solvePnPRansac, retvals are retval, rvec, tvec, inliers
-        retval, rvec, tvec = cv2.solvePnP(constants.VISION_TAPE_OBJECT_POINTS,
-                                          corners_subpixel,
-                                          self.calibration_info.camera_matrix,
-                                          self.calibration_info.dist_coeffs)
+        if self.calibration_info.fisheye:
+            undistorted_points = cv2.fisheye.undistortPoints(corners_subpixel, self.calibration_info.camera_matrix,
+                                                             self.calibration_info.dist_coeffs)
+            retval, rvec, tvec = cv2.solvePnP(constants.VISION_TAPE_OBJECT_POINTS,
+                                              undistorted_points,
+                                              self.calibration_info.camera_matrix,
+                                              None)  # Distortion vector is none because we already undistorted the image
+        else:
+            retval, rvec, tvec = cv2.solvePnP(constants.VISION_TAPE_OBJECT_POINTS,
+                                              corners_subpixel,
+                                              self.calibration_info.camera_matrix,
+                                              self.calibration_info.dist_coeffs)
 
         dist = np.linalg.norm(tvec)
         return rvec, tvec, dist
@@ -170,6 +181,7 @@ def save_calibration_results(camera_matrix: np.array,
                              dist_coeffs: np.array,
                              rvecs: np.array,
                              tvecs: np.array,
+                             fisheye: bool,
                              fname: str = "calibration_info.pickle"):
     """
     Save calibration results to a pickle
@@ -180,7 +192,7 @@ def save_calibration_results(camera_matrix: np.array,
     :param fname: The filename to save it to (optional, ideally ends in .pickle)
     :return: None
     """
-    results = CalibrationResults(camera_matrix, dist_coeffs, rvecs, tvecs)
+    results = CalibrationResults(camera_matrix, dist_coeffs, rvecs, tvecs, fisheye)
     with open(fname, "wb") as f:
         pickle.dump(results, f)
 

@@ -6,6 +6,7 @@ import logging
 
 parser = argparse.ArgumentParser()
 parser.add_argument("fname", help="The name of the file to store the calibration info into", type=str)
+parser.add_argument("--fisheye", help="Indicates that the camera has a fisheye lens", action="store_true")
 
 args = parser.parse_args()
 
@@ -19,7 +20,6 @@ criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 objp = np.zeros((5 * 7, 3), np.float32)
 objp[:, :2] = np.mgrid[0:7, 0:5].T.reshape(-1, 2)
 
-print(objp)
 
 # Arrays to store object points and image points from all the images.
 objpoints = []  # 3d point in real world space
@@ -47,8 +47,11 @@ while len(imgpoints) < 20:
         cv2.waitKey(500)
         logger.info("Stored a point")
 
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
-pipeline.save_calibration_results(mtx, dist, rvecs, tvecs, args.fname)
+if args.fisheye:
+    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1], None, None)
+else:
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+pipeline.save_calibration_results(mtx, dist, rvecs, tvecs, args.fisheye, args.fname)
 
 cv2.destroyAllWindows()
 
