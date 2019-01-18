@@ -8,8 +8,7 @@ This vision code is designed to locate the vision target and find its pose relat
 See main.py for usage
 
 # Learn OpenCV
-- [Python](https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_table_of_contents_imgproc/py_table_of_contents_imgproc.html)
-- ~~[Java (not for this project)](https://opencv-java-tutorials.readthedocs.io/en/latest/03-first-javafx-application-with-opencv.html)~~
+- [Python](https://docs.opencv.org/4.0.1/d6/d00/tutorial_py_root.html)
 
 ## Setup
 
