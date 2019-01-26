@@ -21,8 +21,8 @@ class VisionPipeline:
         :param synthetic: (bool) Whether or not the synthetic Blender images are being used
         :param calib_fname: (str) The file location of the pickled CalibrationResults instance
         """
-        self.logger: logging.Logger = logging.getLogger("VisionPipeline")
-        self.synthetic: bool = synthetic
+        self.logger = logging.getLogger("VisionPipeline")
+        self.synthetic = synthetic
         if synthetic and calib_fname is None:
             calib_fname = constants.BLENDER_CALIBRATION_INFO_LOCATION
         if calib_fname is None:

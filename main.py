@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
 
     if sockets_on:
-        HOST, PORT = "localhost", 5800
+        HOST, PORT = "", 5800
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((HOST, PORT))
 
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     atexit.register(exit)
     if sockets_on:
-        s.listen(1)
+        s.listen(100)
         conn, addr = s.accept()
         print(addr)
 
