@@ -3,19 +3,39 @@ import atexit
 import pipeline
 import cv2
 import numpy as np
+import socket
+import argparse
 
 if __name__ == '__main__':
+    sockets_on = True
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--no_sockets", help="Does not attempt to transmit data via sockets", action="store_true")
+    args = parser.parse_args()
+    if args.no_sockets:
+        sockets_on = False
+
     # TODO: Store calib_fname in environment variable or something
-    vision_pipeline = pipeline.VisionPipeline(False, calib_fname="ritik_webcam2.pickle")
+    vision_pipeline = pipeline.VisionPipeline(False, calib_fname="prod_camera_calib.pickle")
     cap = cv2.VideoCapture(0)
+
+    if sockets_on:
+        HOST, PORT = "localhost", 5800
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind((HOST, PORT))
 
 
     def exit():
         cv2.destroyAllWindows()
         cap.release()
+        if sockets_on:
+            s.close()
 
 
     atexit.register(exit)
+    if sockets_on:
+        s.listen(1)
+        conn, addr = s.accept()
+        print(addr)
 
     while True:
         # Read image from camera
@@ -53,4 +73,6 @@ if __name__ == '__main__':
 
         # print(euler_angles)
         print("dist: {0:0.2f} | angle (rad): {1:0.2f}".format(dist, euler_angles[1]))
+        if sockets_on:
+            conn.sendall(bytes(tvecs[0]) + b',' + bytes(tvecs[1]) + b',' + bytes(euler_angles[1]))
         cv2.waitKey(1000 // 30)
