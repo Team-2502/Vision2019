@@ -25,7 +25,7 @@ objp[:, :2] = np.mgrid[0:7, 0:5].T.reshape(-1, 2)
 objpoints = []  # 3d point in real world space
 imgpoints = []  # 2d points in image plane.
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(4)
 
 logging.info("Initialized camera capture stream")
 

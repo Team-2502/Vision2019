@@ -7,7 +7,7 @@ import numpy as np
 if __name__ == '__main__':
     # TODO: Store calib_fname in environment variable or something
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname="ritik_webcam2.pickle")
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(4s)
 
 
     def exit():
