@@ -3,6 +3,7 @@ import cv2
 import pipeline
 import argparse
 import logging
+import constants
 
 parser = argparse.ArgumentParser()
 parser.add_argument("fname", help="The name of the file to store the calibration info into", type=str)
@@ -25,7 +26,7 @@ objp[:, :2] = np.mgrid[0:7, 0:5].T.reshape(-1, 2)
 objpoints = []  # 3d point in real world space
 imgpoints = []  # 2d points in image plane.
 
-cap = cv2.VideoCapture(4)
+cap = cv2.VideoCapture(constants.CAMERA_ID)
 
 logging.info("Initialized camera capture stream")
 

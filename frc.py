@@ -609,7 +609,7 @@ def trackbar_hsv():
     cv2.createTrackbar('high_s', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_s", v, low, high))
     cv2.createTrackbar('high_v', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_v", v, low, high))
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(constants.CAMERA_ID)
     while True:
         ret, frame = cap.read()
         frame = cv2.bitwise_not(frame)

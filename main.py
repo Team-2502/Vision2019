@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import socket
 import argparse
+import constants
 
 if __name__ == '__main__':
     sockets_on = True
@@ -15,13 +16,11 @@ if __name__ == '__main__':
         sockets_on = False
 
     # TODO: Store calib_fname in environment variable or something
-    cap = cv2.VideoCapture(4)
+    cap = cv2.VideoCapture(constants.CAMERA_ID)
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname="prod_camera_calib.pickle")
 
-
-
     if sockets_on:
-        HOST, PORT = "", 5800
+        HOST, PORT = "", constants.PORT
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((HOST, PORT))
 
@@ -36,6 +35,7 @@ if __name__ == '__main__':
     atexit.register(exit)
     if sockets_on:
         s.listen(100)
+        print("Waiting for socket connection . . .")
         conn, addr = s.accept()
         print(addr)
 
@@ -76,5 +76,9 @@ if __name__ == '__main__':
         # print(euler_angles)
         print("dist: {0:0.2f} | angle (rad): {1:0.2f}".format(dist, euler_angles[1]))
         if sockets_on:
-            conn.sendall(bytes(tvecs[0]) + b',' + bytes(tvecs[1]) + b',' + bytes(euler_angles[1]))
+            conn.sendall(
+                b'|' + bytes(str(tvecs[0][0]), 'utf-8') +
+                b',' + bytes(str(tvecs[1][0]), 'utf-8') +
+                b',' + bytes(str(euler_angles[1]), 'utf-8') +
+                b'|')
         cv2.waitKey(1000 // 30)

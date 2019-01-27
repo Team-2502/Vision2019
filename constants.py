@@ -71,10 +71,13 @@ VISION_TAPE_BOTTOM_SEPARATION_IN = 2 * VISION_TAPE_LENGTH_IN * math.sin(VISION_T
 VISION_TAPE_BOTTOM_SEPARATION_FT = VISION_TAPE_BOTTOM_SEPARATION_IN / 12
 """Distance between the bottom point on the left rectangle and the bottom point on the right rectangle (feet)"""
 
-VISION_TAPE_HEIGHT_FT = np.matmul(_rot_mat(-VISION_TAPE_ANGLE_FROM_VERT_RAD),
-                                  np.array([VISION_TAPE_WIDTH_FT, -VISION_TAPE_LENGTH_FT]))[1]
+VISION_TAPE_ROTATED_HEIGHT_FT = np.matmul(_rot_mat(-VISION_TAPE_ANGLE_FROM_VERT_RAD),
+                                          np.array([VISION_TAPE_WIDTH_FT, -VISION_TAPE_LENGTH_FT]))[1]
 
-CENTER_LOC_FT = np.array([VISION_TAPE_TOP_SEPARATION_FT / 2, VISION_TAPE_HEIGHT_FT / 2])
+VISION_TAPE_ROTATED_WIDTH_FT = np.matmul(_rot_mat(-VISION_TAPE_ANGLE_FROM_VERT_RAD),
+                                         np.array([VISION_TAPE_WIDTH_FT, -VISION_TAPE_LENGTH_FT]))[0]
+
+CENTER_LOC_FT = np.array([VISION_TAPE_TOP_SEPARATION_FT / 2, VISION_TAPE_ROTATED_HEIGHT_FT / 2])
 
 # Vision tape coordinates
 TOP_LEFT_LOCATION_FT = np.array([0, 0]) - CENTER_LOC_FT
@@ -105,3 +108,8 @@ VISION_TAPE_OBJECT_POINTS = np.array([
     np.matmul(_two_to_three, BOTTOM_RIGHT_LOCATION_FT)
 ])
 """Parameter to cv2.solvePnP and cv2.solvePnPRansac"""
+
+CAMERA_ID = 4
+"""The id of the camera"""
+
+PORT = 5800
