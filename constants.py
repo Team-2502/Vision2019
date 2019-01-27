@@ -75,7 +75,7 @@ VISION_TAPE_ROTATED_HEIGHT_FT = np.matmul(_rot_mat(-VISION_TAPE_ANGLE_FROM_VERT_
                                           np.array([VISION_TAPE_WIDTH_FT, -VISION_TAPE_LENGTH_FT]))[1]
 
 VISION_TAPE_ROTATED_WIDTH_FT = np.matmul(_rot_mat(-VISION_TAPE_ANGLE_FROM_VERT_RAD),
-                                         np.array([VISION_TAPE_WIDTH_FT, -VISION_TAPE_LENGTH_FT]))[0]
+                                         np.array([VISION_TAPE_WIDTH_FT, VISION_TAPE_LENGTH_FT]))[0]
 
 CENTER_LOC_FT = np.array([VISION_TAPE_TOP_SEPARATION_FT / 2, VISION_TAPE_ROTATED_HEIGHT_FT / 2])
 
@@ -109,7 +109,11 @@ VISION_TAPE_OBJECT_POINTS = np.array([
 ])
 """Parameter to cv2.solvePnP and cv2.solvePnPRansac"""
 
-CAMERA_ID = 4
+CAMERA_ID = int(os.getenv("V19_CAMERA_ID")) or 4
 """The id of the camera"""
 
 PORT = 5800
+"""The port to send data over"""
+
+CALIBRATION_FILE_LOCATION = os.getenv("V19_CALIBRATION_FILE_LOCATION") or "prod_camera_calib.pickle"
+"""The path to the pickle containing the calibration information"""

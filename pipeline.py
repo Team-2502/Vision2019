@@ -1,5 +1,5 @@
 import collections
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 import constants
 import numpy as np
@@ -33,7 +33,7 @@ class VisionPipeline:
         self.logger.debug("Synthetic: " + str(synthetic))
         self.logger.debug("Fisheye: " + str(self.calibration_info.fisheye))
 
-    def process_image(self, image: np.array) -> Tuple[np.array, np.array, np.array, np.array, float, np.array]:
+    def process_image(self, image: np.array) -> Tuple[List[np.array], np.array, Optional[np.array], Optional[np.array], Optional[float], Optional[np.array]]:
         """
         Find the rotation and translation vectors that convert
         from the world coordinate system into the camera coordinate system
@@ -54,8 +54,13 @@ class VisionPipeline:
 
         contours = self._get_contours(bitmask)
         corners_subpixel = self._get_corners(contours, bitmask)
-        rvec, tvec, dist = self._estimate_pose(corners_subpixel)
-        euler_angles = self._rodrigues_to_euler_angles(rvec)
+
+        try:
+            rvec, tvec, dist = self._estimate_pose(corners_subpixel)
+            euler_angles = self._rodrigues_to_euler_angles(rvec)
+        except cv2.error:
+            rvec, tvec, dist, euler_angles = None, None, None, None
+
         return contours, corners_subpixel.reshape(-1, 2), rvec, tvec, dist, euler_angles
 
     def _generate_bitmask_camera(self, image: np.array) -> np.array:
@@ -87,7 +92,7 @@ class VisionPipeline:
             (255, 255, 255)
         )
 
-    def _get_contours(self, bitmask: np.array) -> np.array:
+    def _get_contours(self, bitmask: np.array) -> List[np.array]:
         """
         Get the contours that represent the vision tape
         :param bitmask:
@@ -95,8 +100,21 @@ class VisionPipeline:
         """
         self.logger.debug("Finding contours")
         contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
-        return contours
+        contour_hull_areas = [cv2.contourArea(cv2.convexHull(contour)) for contour in contours]
+        is_candidate = []
+        for contour, contour_hull_area in zip(contours, contour_hull_areas):
+            if contour_hull_area > 10:
+                area = cv2.contourArea(contour)
+                if area/contour_hull_area > 0.85:
+                    _, _, w, h = cv2.boundingRect(contour)
+                    ratio = -constants.VISION_TAPE_ROTATED_WIDTH_FT/constants.VISION_TAPE_ROTATED_HEIGHT_FT
+                    if 0.5 * ratio <= w/h <= 1.5 * ratio:
+                        is_candidate.append(True)
+                        continue
+            is_candidate.append(False)
+        candidates = [contour for i, contour in enumerate(contours) if is_candidate[i]]
+        candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
+        return candidates
 
     def _get_corners(self, contours: List[np.array], bitmask: np.array) -> np.array:
         """
