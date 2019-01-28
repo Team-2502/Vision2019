@@ -35,7 +35,7 @@ if __name__ == '__main__':
     atexit.register(exit)
     if sockets_on:
         s.listen(100)
-        print("Waiting for socket connection . . .")
+        print("Waiting for socket connection on port {} . . .".format(constants.PORT))
         conn, addr = s.accept()
         print(addr)
 

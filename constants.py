@@ -109,10 +109,10 @@ VISION_TAPE_OBJECT_POINTS = np.array([
 ])
 """Parameter to cv2.solvePnP and cv2.solvePnPRansac"""
 
-CAMERA_ID = int(os.getenv("V19_CAMERA_ID")) or 4
+CAMERA_ID = int(os.getenv("V19_CAMERA_ID") or 4)
 """The id of the camera"""
 
-PORT = 5800
+PORT = int(os.getenv("V19_PORT") or 5800)
 """The port to send data over"""
 
 CALIBRATION_FILE_LOCATION = os.getenv("V19_CALIBRATION_FILE_LOCATION") or "prod_camera_calib.pickle"
