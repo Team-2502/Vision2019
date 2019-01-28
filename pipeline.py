@@ -112,7 +112,13 @@ class VisionPipeline:
                         is_candidate.append(True)
                         continue
             is_candidate.append(False)
-        candidates = [contour for i, contour in enumerate(contours) if is_candidate[i]]
+
+        def _approximate_contour(cnt):
+            epsilon = 0.02 * cv2.arcLength(cnt, True)  # Tolerance (decrease for a tighter fit if needed)
+            approx = (cv2.approxPolyDP(cnt, epsilon, True))
+            return approx
+
+        candidates = [_approximate_contour(contour) for i, contour in enumerate(contours) if is_candidate[i]]
         candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
         return candidates
 
