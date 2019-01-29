@@ -7,6 +7,11 @@ import socket
 import argparse
 import constants
 
+def generate_socket_msg(x, y, angle):
+    return bytes(str(x), 'utf-8') + b',' + \
+           bytes(str(y), 'utf-8') + b',' + \
+           bytes(str(angle), 'utf-8') + b'\n'
+
 if __name__ == '__main__':
     sockets_on = True
     parser = argparse.ArgumentParser()
@@ -77,12 +82,8 @@ if __name__ == '__main__':
             # print(euler_angles)
             print("dist: {0:0.2f} | angle (rad): {1:0.2f}".format(dist, euler_angles[1]))
             if sockets_on:
-                conn.sendall(
-                    b'|' + bytes(str(tvecs[0][0]), 'utf-8') +
-                    b',' + bytes(str(tvecs[1][0]), 'utf-8') +
-                    b',' + bytes(str(euler_angles[1]), 'utf-8') +
-                    b'|')
+                conn.sendall(generate_socket_msg(tvecs[0][0], tvecs[2][0],  euler_angles[1]))
         elif rvecs is None and sockets_on:
-            conn.sendall(b'|-9001,-9001,-9001|')
+            conn.sendall(generate_socket_msg(-9001, -9001, -9001))
 
         cv2.waitKey(1000 // 30)
