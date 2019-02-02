@@ -79,8 +79,9 @@ There are a bunch of files. Not all of them are used while `main.py` is running.
         1. Run `python3 calibrate.py`. The same environment variables for `main.py` apply. 
             * To specify the file name to save the calibration info to, use the `V19_CALIBRATION_FILE_LOCATION`
             environment variable as shown above.
-        1. Move the checkerboard around the camera's field of view. 
+        1. Move the checkerboard around the camera's field of view.
         Make sure to rotate it and angle it in different ways for best results.
+        1. Press the space bar when you want to take a picture. 
 * `socket_client.py`
     * Used as a test socket client to listen to messages from `main.py`.
      
