@@ -181,7 +181,7 @@ def get_landmark_points(image):
     """
     Take all contours and map to both their lowest and heightest (y-value) points
 
-    Optimally will be four points TODO: right?
+    Optimally will be four points
     :param image:
     :return:
     """
@@ -565,63 +565,3 @@ def pnp_test():
         angle += delta
     out.release()
 
-
-# TODO: Create a separate script just for trackbar_hsv.
-def trackbar_hsv():
-    """
-    Meant to easily find suitable inRange values
-    :return: None
-    """
-    image = cv2.imread("cam_image.png")  # picture from my webcam
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    low = [0, 0, 0]
-    high = [0, 0, 0]
-
-    im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
-        hsv_image,
-        tuple(low),
-        tuple(high)
-    )
-    def on_trackbar(name, val, low, high):
-        if name == "low_h":
-            low[0] = val
-        elif name == "low_s":
-            low[1] = val
-        elif name == "low_v":
-            low[2] = val
-        elif name == "high_h":
-            high[0] = val
-        elif name == "high_s":
-            high[1] = val
-        elif name == "high_v":
-            high[2] = val
-
-    cv2.imshow("bitmask", im)
-    cv2.imshow("orig", image)
-    smaller_max = 255
-
-
-    cv2.createTrackbar('low_h', "bitmask", 0, 360, lambda v: on_trackbar("low_h", v, low, high))
-    cv2.createTrackbar('low_s', "bitmask", 0, smaller_max, lambda v: on_trackbar("low_s", v, low, high))
-    cv2.createTrackbar('low_v', "bitmask", 0, smaller_max, lambda v: on_trackbar("low_v", v, low, high))
-    cv2.createTrackbar('high_h', "bitmask", 0, 360, lambda v: on_trackbar("high_h", v, low, high))
-    cv2.createTrackbar('high_s', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_s", v, low, high))
-    cv2.createTrackbar('high_v', "bitmask", 0, smaller_max, lambda v: on_trackbar("high_v", v, low, high))
-
-    cap = cv2.VideoCapture(constants.CAMERA_ID)
-    while True:
-        ret, frame = cap.read()
-        frame = cv2.bitwise_not(frame)
-        cv2.imshow("orig", frame)
-        im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
-            cv2.cvtColor(frame, cv2.COLOR_BGR2HSV),
-            tuple(low),
-            tuple(high)
-        )
-        cv2.imshow("bitmask", im)
-        cv2.waitKey(1000 // 30)
-
-    cv2.waitKey()
-
-trackbar_hsv()

@@ -150,7 +150,7 @@ class VisionPipeline:
 
         return corners_subpixel
 
-    def _estimate_pose(self, corners_subpixel: np.array) -> Tuple[np.array, np.array, float]:  # TODO: Fix
+    def _estimate_pose(self, corners_subpixel: np.array) -> Tuple[np.array, np.array, float]:
         """
         Estimate the pose of the vision target
         :param corners_subpixel:

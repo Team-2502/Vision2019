@@ -84,4 +84,5 @@ There are a bunch of files. Not all of them are used while `main.py` is running.
         1. Press the space bar when you want to take a picture. 
 * `socket_client.py`
     * Used as a test socket client to listen to messages from `main.py`.
-     
+* `color_range_finder.py`
+    * Used to find adequate HSV ranges for `cv2.inRange` 

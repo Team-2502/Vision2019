@@ -20,7 +20,6 @@ if __name__ == '__main__':
     if args.no_sockets:
         sockets_on = False
 
-    # TODO: Store calib_fname in environment variable or something
     cap = cv2.VideoCapture(constants.CAMERA_ID)
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
