@@ -5,7 +5,8 @@ import cv2
 import constants
 
 cap = cv2.VideoCapture(constants.CAMERA_ID)
-
+cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+cap.set(cv2.CAP_PROP_EXPOSURE, 20)
 parser = argparse.ArgumentParser()
 parser.add_argument("--invert", help="Invert the image before computing the bitmask", action="store_true")
 args = parser.parse_args()
