@@ -93,6 +93,13 @@ if __name__ == '__main__':
                     print(addr)
 
         elif rvecs is None and sockets_on:
-            conn.sendall(generate_socket_msg(-9001, -9001, -9001))
+            try:
+                conn.sendall(generate_socket_msg(-9001, -9001, -9001))
+
+            except (ConnectionResetError, BrokenPipeError):
+                s.listen(100)
+                print("Waiting for socket connection on port {} . . .".format(constants.PORT))
+                conn, addr = s.accept()
+                print(addr)
 
         cv2.waitKey(1000 // 30)
