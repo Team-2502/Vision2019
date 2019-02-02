@@ -7,10 +7,12 @@ import socket
 import argparse
 import constants
 
+
 def generate_socket_msg(x, y, angle):
     return bytes(str(x), 'utf-8') + b',' + \
            bytes(str(y), 'utf-8') + b',' + \
            bytes(str(angle), 'utf-8') + b'\n'
+
 
 if __name__ == '__main__':
     sockets_on = True
@@ -80,8 +82,16 @@ if __name__ == '__main__':
 
             # print(euler_angles)
             print("dist: {0:0.2f} | angle (rad): {1:0.2f}".format(dist, euler_angles[1]))
+
             if sockets_on:
-                conn.sendall(generate_socket_msg(tvecs[0][0], tvecs[2][0],  euler_angles[1]))
+                try:
+                    conn.sendall(generate_socket_msg(tvecs[0][0], tvecs[2][0],  euler_angles[1]))
+                except (ConnectionResetError, BrokenPipeError):
+                    s.listen(100)
+                    print("Waiting for socket connection on port {} . . .".format(constants.PORT))
+                    conn, addr = s.accept()
+                    print(addr)
+
         elif rvecs is None and sockets_on:
             conn.sendall(generate_socket_msg(-9001, -9001, -9001))
 
