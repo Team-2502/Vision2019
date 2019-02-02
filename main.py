@@ -18,11 +18,15 @@ if __name__ == '__main__':
     sockets_on = True
     parser = argparse.ArgumentParser()
     parser.add_argument("--no_sockets", help="Does not attempt to transmit data via sockets", action="store_true")
+    parser.add_argument("--invert", help="invert camera image", action="store_true")
     args = parser.parse_args()
     if args.no_sockets:
         sockets_on = False
 
     cap = cv2.VideoCapture(constants.CAMERA_ID)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+    cap.set(cv2.CAP_PROP_EXPOSURE, 20)
+
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
     if sockets_on:
@@ -51,8 +55,8 @@ if __name__ == '__main__':
         cv2.imshow("cam", image)
 
         # Invert image (assuming that tapes are black and background is white)
-        # TODO: Remove inversion
-        image = cv2.bitwise_not(image)
+        if args.invert:
+            image = cv2.bitwise_not(image)
         cv2.imshow("img", image)
 
         # Process image
