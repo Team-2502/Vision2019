@@ -73,8 +73,8 @@ class VisionPipeline:
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
             hsv_image,
-            (0, 0, 181),
-            (200, 40, 255)
+            (0, 0, 236),
+            (103, 255, 255)
         )
         closing = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((3, 3)))
         return closing
