@@ -99,8 +99,11 @@ class VisionPipeline:
         :return:
         """
         self.logger.debug("Finding contours")
-        image, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contour_hull_areas = [cv2.contourArea(cv2.convexHull(contour)) for contour in contours]
+
+        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        convex_hulls = [cv2.convexHull(contour) for contour in contours]
+        contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
+
         is_candidate = []
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
             if contour_hull_area > 10:
@@ -113,13 +116,33 @@ class VisionPipeline:
                         continue
             is_candidate.append(False)
 
-        def _approximate_contour(cnt):
-            epsilon = 0.02 * cv2.arcLength(cnt, True)  # Tolerance (decrease for a tighter fit if needed)
-            approx = (cv2.approxPolyDP(cnt, epsilon, True))
-            return approx
+        candidates = [convex_hulls[i] for i, contour in enumerate(contours) if is_candidate[i]]
+        def get_centroid_x(cnt):
+            M = cv2.moments(cnt)
+            return int(M["m10"]/M["m00"])
 
-        candidates = [_approximate_contour(contour) for i, contour in enumerate(contours) if is_candidate[i]]
+        candidates.sort(key=get_centroid_x)
+
+        def is_tape_on_left_side(cnt):
+            min_area_box = np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
+
+            left_box_point = min(min_area_box, key=lambda row: row[0])
+            right_box_point = max(min_area_box, key=lambda row: row[0])
+
+            return not left_box_point[1] < right_box_point[1]
+
+        if len(candidates) > 2:
+            if not is_tape_on_left_side(candidates[0]): # pointing to right
+                del candidates[0]  # left-most one should point to left
+                print("removed leftmost for pointing to right")
+            if is_tape_on_left_side(candidates[-1]):
+                del candidates[-1]
+                print("removed rightmost for pointing to left")
+
         candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
+        if len(candidates) > 0:
+            print(is_tape_on_left_side(candidates[0]))
+
         return candidates
 
     def _get_corners(self, contours: List[np.array], bitmask: np.array) -> np.array:
@@ -135,12 +158,16 @@ class VisionPipeline:
 
         # TODO: Rewrite to use np.sort/np,array instead of Python lists and list.sort
         tops = [min(contour, key=lambda x: x[1]) for contour in contours]
-        bots = [max(contour, key=lambda x: x[1]) for contour in contours]
+        # bots = [max(contour, key=lambda x: x[1]) for contour in contours]
+        lefts = [min(contour, key=lambda x: x[0]) for contour in contours]
+        rights = [max(contour, key=lambda x: x[0]) for contour in contours]
 
         tops.sort(key=lambda x: x[0])
-        bots.sort(key=lambda x: x[0])
+        # bots.sort(key=lambda x: x[0])
+        lefts.sort(key=lambda x: x[0])
+        rights.sort(key=lambda x: -x[0])
 
-        pixel_corners = np.array(tops + bots, dtype=np.float32).reshape(-1, 1, 2)
+        pixel_corners = np.array(tops + lefts[:1] + rights[:1], dtype=np.float32).reshape(-1, 1, 2)
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
         corners_subpixel = cv2.cornerSubPix(bitmask,

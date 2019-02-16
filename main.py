@@ -8,6 +8,12 @@ import argparse
 import constants
 import os
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--no_sockets", help="Does not attempt to transmit data via sockets", action="store_true")
+parser.add_argument("--invert", help="invert camera image", action="store_true")
+parser.add_argument("--yes_gui", help="invert camera image", action="store_false")
+args = parser.parse_args()
+
 def generate_socket_msg(x, y, angle):
     return bytes(str(x), 'utf-8') + b',' + \
            bytes(str(y), 'utf-8') + b',' + \
@@ -16,11 +22,7 @@ def generate_socket_msg(x, y, angle):
 
 if __name__ == '__main__':
     sockets_on = True
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--no_sockets", help="Does not attempt to transmit data via sockets", action="store_true")
-    parser.add_argument("--invert", help="invert camera image", action="store_true")
-    parser.add_argument("--yes_gui", help="invert camera image", action="store_false")
-    args = parser.parse_args()
+
     if args.no_sockets:
         sockets_on = False
 
@@ -28,6 +30,8 @@ if __name__ == '__main__':
 
     cap = cv2.VideoCapture(constants.CAMERA_ID)
 #    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_absolute=19")
+    # cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+    # cap.set(cv2.CAP_PROP_EXPOSURE, 20)
 
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
@@ -66,9 +70,12 @@ if __name__ == '__main__':
 
         # Process image
         contours, corners_subpixel, rvecs, tvecs, dist, euler_angles = vision_pipeline.process_image(image)
+
         if use_gui:
             print("b")
+            
             contours_img = cv2.drawContours(image, contours, -1, (0, 255, 0), thickness=3)
+            contours_img = cv2.drawContours(image, contours[:1], -1, (255, 0, 0), thickness=3)
             cv2.imshow("contours", contours_img)
 
         center = np.array([

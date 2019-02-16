@@ -84,13 +84,13 @@ TOP_LEFT_LOCATION_FT = np.array([0, 0]) - CENTER_LOC_FT
 """The location of the top point on the left rectangle in feet. Used in cv2.solvePnP"""
 
 BOTTOM_LEFT_LOCATION_FT = np.matmul(_rot_mat(-VISION_TAPE_ANGLE_FROM_VERT_RAD),
-                                    np.array([VISION_TAPE_WIDTH_FT, -VISION_TAPE_LENGTH_FT])) - CENTER_LOC_FT
+                                    np.array([0, -VISION_TAPE_LENGTH_FT])) - CENTER_LOC_FT
 """The location of the bottom point on the left rectangle in feet. Used in cv2.solvePnP"""
 
 TOP_RIGHT_LOCATION_FT = np.array([VISION_TAPE_TOP_SEPARATION_FT, 0]) + TOP_LEFT_LOCATION_FT
 """The location of the top point on the right rectangle in feet. Used in cv2.solvePnP"""
 
-BOTTOM_RIGHT_LOCATION_FT = BOTTOM_LEFT_LOCATION_FT + np.array([VISION_TAPE_BOTTOM_SEPARATION_FT, 0])
+BOTTOM_RIGHT_LOCATION_FT = BOTTOM_LEFT_LOCATION_FT + np.array([VISION_TAPE_BOTTOM_SEPARATION_FT + 4/12 * np.math.sin(np.math.radians(75.5)), 0])
 """The location of the bottom point on the right rectangle in feet. Used in cv2.solvePnP"""
 
 CENTER_LOC_FT = np.array([0, 0])
