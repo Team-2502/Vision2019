@@ -73,8 +73,8 @@ class VisionPipeline:
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
             hsv_image,
-            (0, 0, 236),
-            (103, 255, 255)
+            (25, 0, 221),
+            (279, 255, 255)
         )
         closing = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((3, 3)))
         return closing
@@ -99,7 +99,7 @@ class VisionPipeline:
         :return:
         """
         self.logger.debug("Finding contours")
-        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        image, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contour_hull_areas = [cv2.contourArea(cv2.convexHull(contour)) for contour in contours]
         is_candidate = []
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
