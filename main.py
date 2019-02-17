@@ -29,9 +29,11 @@ if __name__ == '__main__':
     use_gui = not args.yes_gui
 
     cap = cv2.VideoCapture(constants.CAMERA_ID)
-#    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_absolute=19")
-    # cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-    # cap.set(cv2.CAP_PROP_EXPOSURE, 20)
+
+#    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+#    cap.set(cv2.CAP_PROP_EXPOSURE, 20)
+    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_auto=1")
+    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_absolute=19")
 
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
