@@ -146,11 +146,11 @@ class VisionPipeline:
             left_box_point = min(min_area_box, key=lambda row: row[0])
             right_box_point = max(min_area_box, key=lambda row: row[0])
 
-            return not left_box_point[1] < right_box_point[1] # left point is below right point
+            return left_box_point[1] > right_box_point[1] # left point is below right point
 
         candidates.sort(key=get_centroid_x)
 
-        for _ in range(len(candidates)):
+        if len(candidates) > 0:
             try:
                 if not is_tape_on_left_side(candidates[0]):  # pointing to right
                     trash.append(candidates[0])
@@ -162,9 +162,9 @@ class VisionPipeline:
                     print("removed rightmost for pointing to left")
             except Exception as e:
                 print("whoops 4", e)
-                break
+                #break
 
-        candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
+       # candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
 
         if len(candidates) > 0:
             trash.extend(candidates[2:])
