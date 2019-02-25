@@ -115,6 +115,20 @@ class VisionPipeline:
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
+        def not_touching_edge(cnt):
+            cnt = cnt.reshape((-1, 2))
+            top_index = cnt[:, 1].argmin()
+            bottom_index = cnt[:, 1].argmax()
+            left_index = cnt[:, 0].argmin()
+            right_index = cnt[:, 0].argmax()
+
+            top_y = cnt[top_index][1]
+            bot_y = cnt[bottom_index][1]
+            left_x = cnt[left_index][0]
+            right_x = cnt[right_index][0]
+
+            return top_y > 10 and bot_y < constants.IM_HEIGHT - 10 and left_x > 10 and right_index < constants.IM_WIDTH - 10
+
         is_candidate = []
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
             if contour_hull_area > 10:
@@ -123,8 +137,11 @@ class VisionPipeline:
                     _, _, w, h = cv2.boundingRect(contour)
                     ratio = -constants.VISION_TAPE_ROTATED_WIDTH_FT / constants.VISION_TAPE_ROTATED_HEIGHT_FT
                     if 0.5 * ratio <= w / h <= 1.5 * ratio:
-                        is_candidate.append(True)
-                        continue
+                        if not_touching_edge(cnt):
+                            is_candidate.append(True)
+                            continue
+                        else:
+                            print("contour cut off")
                     else:
                         print("contour has bad proportions")
                 else: 
@@ -136,7 +153,7 @@ class VisionPipeline:
 
         candidates = [convex_hulls[i] for i, contour in enumerate(contours) if is_candidate[i]]
 
-        def get_centroid_x(cnt):
+        def get_centroid_x(cnt: np.array) -> int:
             M = cv2.moments(cnt)
             return int(M["m10"] / M["m00"])
 
@@ -162,15 +179,27 @@ class VisionPipeline:
                     print("removed rightmost for pointing to left")
             except Exception as e:
                 print("whoops 4", e)
-                #break
 
-       # candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
 
-        if len(candidates) > 0:
-            trash.extend(candidates[2:])
-            candidates = candidates[:2]
-            candidates.sort(key=get_centroid_x)
+
+        if len(candidates) > 1:
+            contour_pair_centroids = {}
+            
+            for i, left_cnt, right_cnt in zip(range(len(candidates)), candidates[::2], candidates[1::2]):
+                contour_pair_centroids[get_centroid_x(np.concatenate((left_cnt, right_cnt)))] = i
+           
+            pair_num = contour_pair_centroids[min(contour_pair_centroids.keys(), key = lambda x: 320 - x)]
+            
+            left_index = pair_num * 2
+            right_index = left_index + 1
+            
+            trash.extend(candidates[:left_index])
+            trash.extend(candidates[right_index + 1:])
+            candidates = [candidates[left_index], candidates[right_index]]
+            #scandidates.sort(key=get_centroid_x)
             print(is_tape_on_left_side(candidates[0]))
+        else:
+             return [], candidates + trash
 
         return candidates, trash  # left guaranteed to be first
 
