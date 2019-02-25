@@ -85,6 +85,7 @@ if __name__ == '__main__':
             
             contours_img = cv2.drawContours(image, contours, -1, (0, 255, 0), thickness=3)
             contours_img = cv2.drawContours(image, contours[:1], -1, (255, 0, 0), thickness=3)
+            contours_img = cv2.drawContours(image, pipeline_result.trash, -1, (0, 0, 255), thickness=2)
             cv2.imshow("contours", contours_img)
 
         center = np.array([
@@ -99,7 +100,7 @@ if __name__ == '__main__':
                 print("d")
 
                 for corner in pipeline_result.corners[0]:
-                    corner_img = cv2.circle(image, tuple(corner), 3, (255, 0, 0), thickness=3)
+                    corner_img = cv2.circle(image, tuple(corner[0].astype(np.int32)), 3, (255, 0, 0), thickness=3)
 
                 cv2.imshow("corner_img", corner_img)
                 print("e")

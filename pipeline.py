@@ -12,7 +12,7 @@ CalibrationResults = collections.namedtuple("CalibrationResults",
 CalibrationResults.__new__.__defaults__ = (False,)  # Default for rightmost constructor argument is now False
 
 PipelineResults = collections.namedtuple("PipelineResults",
-                                         ['bitmask', 'contours', 'corners', 'pose_estimation', 'euler_angles'])
+                                         ['bitmask', 'trash', 'contours', 'corners', 'pose_estimation', 'euler_angles'])
 
 PoseEstimation = collections.namedtuple("PoseEstimation", ['left_rvec', 'left_tvec', 'right_rvec', 'right_tvec'])
 EulerAngles = collections.namedtuple("EulerAngles", ['left', 'right'])
@@ -59,7 +59,7 @@ class VisionPipeline:
         else:
             bitmask = self._generate_bitmask_synthetic(image)
 
-        contours = self._get_contours(bitmask)
+        trash_contours, contours = self._get_contours(bitmask)
         corners_subpixel = self._get_corners(contours, bitmask)
 
         try:
@@ -72,7 +72,7 @@ class VisionPipeline:
         except (cv2.error, AttributeError):
             result, euler_angles = None, None
 
-        return PipelineResults(bitmask, contours, corners_subpixel, result, euler_angles)
+        return PipelineResults(bitmask, trash_contours, contours, corners_subpixel, result, euler_angles)
 
     def _generate_bitmask_camera(self, image: np.array) -> np.array:
         """
@@ -103,15 +103,15 @@ class VisionPipeline:
             (255, 255, 255)
         )
 
-    def _get_contours(self, bitmask: np.array) -> List[np.array]:
+    def _get_contours(self, bitmask: np.array) -> Tuple[List[np.array], List[np.array]]:
         """
         Get the contours that represent the vision tape
         :param bitmask:
         :return:
         """
         self.logger.debug("Finding contours")
-
-        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        trash = []
+        _, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
@@ -125,7 +125,14 @@ class VisionPipeline:
                     if 0.5 * ratio <= w / h <= 1.5 * ratio:
                         is_candidate.append(True)
                         continue
+                    else:
+                        print("contour has bad proportions")
+                else: 
+                    print("contour is not full")
+            else:
+                print("contour is smolboi")
             is_candidate.append(False)
+            trash.append(contour)
 
         candidates = [convex_hulls[i] for i, contour in enumerate(contours) if is_candidate[i]]
 
@@ -145,20 +152,23 @@ class VisionPipeline:
 
         if len(candidates) > 2:
             if not is_tape_on_left_side(candidates[0]):  # pointing to right
+                trash.append(candidates[0])
                 del candidates[0]  # left-most one should point to left
                 print("removed leftmost for pointing to right")
             if is_tape_on_left_side(candidates[-1]):
+                trash.append(candidates[-1])
                 del candidates[-1]
                 print("removed rightmost for pointing to left")
 
         candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
 
         if len(candidates) > 0:
+            trash.extend(candidates[2:])
             candidates = candidates[:2]
             candidates.sort(key=get_centroid_x)
             print(is_tape_on_left_side(candidates[0]))
 
-        return candidates  # left guaranteed to be first
+        return candidates, trash  # left guaranteed to be first
 
     def _get_corners(self, contours: List[np.array], bitmask: np.array) -> List[np.array]:
         """
