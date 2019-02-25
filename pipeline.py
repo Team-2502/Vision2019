@@ -87,8 +87,8 @@ class VisionPipeline:
             (25, 0, 221),
             (279, 255, 255)
         )
-        closing = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((3, 3)))
-        return closing
+        #closing = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((3, 3)))
+        return im
 
     def _generate_bitmask_synthetic(self, image: np.array) -> np.array:
         """
@@ -150,15 +150,19 @@ class VisionPipeline:
 
         candidates.sort(key=get_centroid_x)
 
-        while len(candidates) > 2:
-            if not is_tape_on_left_side(candidates[0]):  # pointing to right
-                trash.append(candidates[0])
-                del candidates[0]  # left-most one should point to left
-                print("removed leftmost for pointing to right")
-            if is_tape_on_left_side(candidates[-1]):
-                trash.append(candidates[-1])
-                del candidates[-1]
-                print("removed rightmost for pointing to left")
+        for _ in range(len(candidates)):
+            try:
+                if not is_tape_on_left_side(candidates[0]):  # pointing to right
+                    trash.append(candidates[0])
+                    del candidates[0]  # left-most one should point to left
+                    print("removed leftmost for pointing to right")
+                if is_tape_on_left_side(candidates[-1]):
+                    trash.append(candidates[-1])
+                    del candidates[-1]
+                    print("removed rightmost for pointing to left")
+            except Exception as e:
+                print("whoops 4", e)
+                break
 
         candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
 

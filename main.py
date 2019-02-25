@@ -20,7 +20,7 @@ def generate_socket_msg(x, y, angle):
            bytes(str(angle), 'utf-8') + b'\n'
 
 
-if __name__ == '__main__':
+def main():
     sockets_on = True
 
     if args.no_sockets:
@@ -29,7 +29,8 @@ if __name__ == '__main__':
     use_gui = not args.yes_gui
 
     cap = cv2.VideoCapture(constants.CAMERA_ID)
-
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
 #    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
 #    cap.set(cv2.CAP_PROP_EXPOSURE, 20)
     os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_auto=1")
@@ -64,7 +65,7 @@ if __name__ == '__main__':
         if use_gui:
             cv2.imshow("cam", image)
         print("a")
-        # Invert image (assuming that tapes are black and background is white)
+        # Invert image (rassuming that tapes are black and background is white)
         if args.invert:
             image = cv2.bitwise_not(image)
         if use_gui:
@@ -75,7 +76,7 @@ if __name__ == '__main__':
         contours = pipeline_result.contours
         pose_estimation = pipeline_result.pose_estimation
         tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2
-        rvecs = None if pose_estimation is None else (pose_estimation.left_rvec + pose_estimation.right_rvec) / 2
+        rvecs = None if pose_estimation is None else (pose_estimation.left_rvec )
         euler_angles = None if pose_estimation is None else (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2
         dist = None if pose_estimation is None else np.linalg.norm(tvecs)
 
@@ -129,3 +130,7 @@ if __name__ == '__main__':
         print("fps: ", (1 / (time.time() - start)))
         if use_gui:
             cv2.waitKey(1000 // 30)
+
+
+if __name__ == '__main__':
+    main()
