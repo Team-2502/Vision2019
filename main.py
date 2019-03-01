@@ -74,12 +74,13 @@ if __name__ == '__main__':
         pipeline_result = vision_pipeline.process_image(image)
         contours = pipeline_result.contours
         pose_estimation = pipeline_result.pose_estimation
-        tvecs = (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2
-        rvecs = (pose_estimation.left_rvec + pose_estimation.right_rvec) / 2
-        euler_angles = (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2
-        dist = np.linalg.norm(tvecs)
+        tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2
+        rvecs = None if pose_estimation is None else (pose_estimation.left_rvec + pose_estimation.right_rvec) / 2
+        euler_angles = None if pose_estimation is None else (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2
+        dist = None if pose_estimation is None else np.linalg.norm(tvecs)
 
         if use_gui:
+            cv2.imshow("bitmask", pipeline_result.bitmask)
             print("b")
             
             contours_img = cv2.drawContours(image, contours, -1, (0, 255, 0), thickness=3)
@@ -98,7 +99,7 @@ if __name__ == '__main__':
                 print("d")
 
                 for corner in pipeline_result.corners[0]:
-                    corner_img = cv2.circle(corner_img, tuple(corner), 3, (255, 0, 0), thickness=3)
+                    corner_img = cv2.circle(image, tuple(corner), 3, (255, 0, 0), thickness=3)
 
                 cv2.imshow("corner_img", corner_img)
                 print("e")
