@@ -1,5 +1,7 @@
 import os
 import math
+
+import cv2
 import numpy as np
 
 
@@ -126,3 +128,6 @@ PORT = int(os.getenv("V19_PORT") or 5800)
 
 CALIBRATION_FILE_LOCATION = os.getenv("V19_CALIBRATION_FILE_LOCATION") or "prod_camera_calib.pickle"
 """The path to the pickle containing the calibration information"""
+
+
+SUBPIXEL_CRITERIA = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)

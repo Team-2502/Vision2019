@@ -71,7 +71,13 @@ if __name__ == '__main__':
             cv2.imshow("img", image)
 
         # Process image
-        contours, corners_subpixel, rvecs, tvecs, dist, euler_angles = vision_pipeline.process_image(image)
+        pipeline_result = vision_pipeline.process_image(image)
+        contours = pipeline_result.contours
+        pose_estimation = pipeline_result.pose_estimation
+        tvecs = (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2
+        rvecs = (pose_estimation.left_rvec + pose_estimation.right_rvec) / 2
+        euler_angles = (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2
+        dist = np.linalg.norm(tvecs)
 
         if use_gui:
             print("b")
@@ -84,18 +90,14 @@ if __name__ == '__main__':
             [0, 0, 0],
         ], dtype=np.float32)
         print("c")
-        if rvecs is not None:
+        if pose_estimation is not None:
             if use_gui:
-                imagePoints, jacobian = cv2.projectPoints(center, rvecs, tvecs, vision_pipeline.calibration_info.camera_matrix,
-                                                      vision_pipeline.calibration_info.dist_coeffs)
-                imagePoints = imagePoints.reshape(-1, 2)
                 image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
                                       vision_pipeline.calibration_info.dist_coeffs,
                                       rvecs, tvecs, 1)
                 print("d")
-                corner_img = cv2.circle(image, tuple(imagePoints[0].astype(np.int32)), 3, (66, 244, 113), thickness=3)
 
-                for corner in corners_subpixel:
+                for corner in pipeline_result.corners[0]:
                     corner_img = cv2.circle(corner_img, tuple(corner), 3, (255, 0, 0), thickness=3)
 
                 cv2.imshow("corner_img", corner_img)

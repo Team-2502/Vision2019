@@ -1,5 +1,5 @@
 import collections
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 
 import constants
 import numpy as np
@@ -11,7 +11,14 @@ CalibrationResults = collections.namedtuple("CalibrationResults",
                                             ["camera_matrix", "dist_coeffs", "rvecs", "tvecs", "fisheye"])
 CalibrationResults.__new__.__defaults__ = (False,)  # Default for rightmost constructor argument is now False
 
+PipelineResults = collections.namedtuple("PipelineResults",
+                                         ['bitmask', 'contours', 'corners', 'pose_estimation', 'euler_angles'])
 
+PoseEstimation = collections.namedtuple("PoseEstimation", ['left_rvec', 'left_tvec', 'right_rvec', 'right_tvec'])
+EulerAngles = collections.namedtuple("EulerAngles", ['left', 'right'])
+
+PipelineResults._field_types = {'bitmask': np.array, 'contours': List[np.array], 'corners': List[np.array],
+                                'pose_estimation': PoseEstimation, 'euler_angles': EulerAngles}
 class VisionPipeline:
     """Contains methods and fields necessary to estimate the pose of the vision target relative to the camera"""
 
@@ -33,7 +40,7 @@ class VisionPipeline:
         self.logger.debug("Synthetic: " + str(synthetic))
         self.logger.debug("Fisheye: " + str(self.calibration_info.fisheye))
 
-    def process_image(self, image: np.array) -> Tuple[List[np.array], np.array, Optional[np.array], Optional[np.array], Optional[float], Optional[np.array]]:
+    def process_image(self, image: np.array) -> PipelineResults:
         """
         Find the rotation and translation vectors that convert
         from the world coordinate system into the camera coordinate system
@@ -56,12 +63,16 @@ class VisionPipeline:
         corners_subpixel = self._get_corners(contours, bitmask)
 
         try:
-            rvec, tvec, dist = self._estimate_pose(corners_subpixel)
-            euler_angles = self._rodrigues_to_euler_angles(rvec)
-        except cv2.error:
-            rvec, tvec, dist, euler_angles = None, None, None, None
+            result = self._estimate_pose(corners_subpixel)
+            euler_angles = EulerAngles(
+                self._rodrigues_to_euler_angles(result.left_rvec),
+                self._rodrigues_to_euler_angles(result.right_rvec),
+            )
 
-        return contours, corners_subpixel.reshape(-1, 2), rvec, tvec, dist, euler_angles
+        except (cv2.error, AttributeError):
+            result, euler_angles = None, None
+
+        return PipelineResults(bitmask, contours, corners_subpixel, result, euler_angles)
 
     def _generate_bitmask_camera(self, image: np.array) -> np.array:
         """
@@ -100,7 +111,7 @@ class VisionPipeline:
         """
         self.logger.debug("Finding contours")
 
-        _, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
@@ -108,18 +119,19 @@ class VisionPipeline:
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
             if contour_hull_area > 10:
                 area = cv2.contourArea(contour)
-                if area/contour_hull_area > 0.85:
+                if area / contour_hull_area > 0.85:
                     _, _, w, h = cv2.boundingRect(contour)
-                    ratio = -constants.VISION_TAPE_ROTATED_WIDTH_FT/constants.VISION_TAPE_ROTATED_HEIGHT_FT
-                    if 0.5 * ratio <= w/h <= 1.5 * ratio:
+                    ratio = -constants.VISION_TAPE_ROTATED_WIDTH_FT / constants.VISION_TAPE_ROTATED_HEIGHT_FT
+                    if 0.5 * ratio <= w / h <= 1.5 * ratio:
                         is_candidate.append(True)
                         continue
             is_candidate.append(False)
 
         candidates = [convex_hulls[i] for i, contour in enumerate(contours) if is_candidate[i]]
+
         def get_centroid_x(cnt):
             M = cv2.moments(cnt)
-            return int(M["m10"]/M["m00"])
+            return int(M["m10"] / M["m00"])
 
         candidates.sort(key=get_centroid_x)
 
@@ -132,7 +144,7 @@ class VisionPipeline:
             return not left_box_point[1] < right_box_point[1]
 
         if len(candidates) > 2:
-            if not is_tape_on_left_side(candidates[0]): # pointing to right
+            if not is_tape_on_left_side(candidates[0]):  # pointing to right
                 del candidates[0]  # left-most one should point to left
                 print("removed leftmost for pointing to right")
             if is_tape_on_left_side(candidates[-1]):
@@ -140,12 +152,15 @@ class VisionPipeline:
                 print("removed rightmost for pointing to left")
 
         candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
+
         if len(candidates) > 0:
+            candidates = candidates[:2]
+            candidates.sort(key=get_centroid_x)
             print(is_tape_on_left_side(candidates[0]))
 
-        return candidates
+        return candidates  # left guaranteed to be first
 
-    def _get_corners(self, contours: List[np.array], bitmask: np.array) -> np.array:
+    def _get_corners(self, contours: List[np.array], bitmask: np.array) -> List[np.array]:
         """
         Find the image coordinates of the corners of the vision target
         :param contours: The list of contours, sorted by area in descending order
@@ -156,28 +171,32 @@ class VisionPipeline:
 
         contours = [x.reshape(-1, 2) for x in contours[:2]]
 
-        # TODO: Rewrite to use np.sort/np,array instead of Python lists and list.sort
-        tops = [min(contour, key=lambda x: x[1]) for contour in contours]
-        # bots = [max(contour, key=lambda x: x[1]) for contour in contours]
-        lefts = [min(contour, key=lambda x: x[0]) for contour in contours]
-        rights = [max(contour, key=lambda x: x[0]) for contour in contours]
+        def get_corners_intpixel(cnt):
+            top_index = cnt[:, 1].argmin()
+            bottom_index = cnt[:, 1].argmax()
+            left_index = cnt[:, 0].argmin()
+            right_index = cnt[:, 0].argmax()
 
-        tops.sort(key=lambda x: x[0])
-        # bots.sort(key=lambda x: x[0])
-        lefts.sort(key=lambda x: x[0])
-        rights.sort(key=lambda x: -x[0])
+            top_point = cnt[top_index]
+            bot_point = cnt[bottom_index]
+            left_point = cnt[left_index]
+            right_point = cnt[right_index]
 
-        pixel_corners = np.array(tops + lefts[:1] + rights[:1], dtype=np.float32).reshape(-1, 1, 2)
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+            if left_point[1] > right_point[1]:  # left lower than right
+                return top_point, right_point, left_point, bot_point
+            else:
+                return top_point, left_point, right_point, bot_point
 
-        corners_subpixel = cv2.cornerSubPix(bitmask,
-                                            pixel_corners,
-                                            (5, 5), (-1, -1),
-                                            criteria)
+        corners = [np.array(get_corners_intpixel(cnt)).reshape((-1, 1, 2)) for cnt in contours]  # left is 0, right is 1
+
+        corners_subpixel = [cv2.cornerSubPix(bitmask,
+                                             corner.astype(np.float32),
+                                             (5, 5), (-1, -1),
+                                             constants.SUBPIXEL_CRITERIA) for corner in corners]
 
         return corners_subpixel
 
-    def _estimate_pose(self, corners_subpixel: np.array) -> Tuple[np.array, np.array, float]:
+    def _estimate_pose(self, corners_subpixel: List[np.array]) -> PoseEstimation:
         """
         Estimate the pose of the vision target
         :param corners_subpixel:
@@ -186,22 +205,27 @@ class VisionPipeline:
 
         self.logger.debug("Running solvePnPRansac")
 
-        # NOTE: If using solvePnPRansac, retvals are retval, rvec, tvec, inliers
-        if self.calibration_info.fisheye:
-            undistorted_points = cv2.fisheye.undistortPoints(corners_subpixel, self.calibration_info.camera_matrix,
-                                                             self.calibration_info.dist_coeffs)
-            retval, rvec, tvec = cv2.solvePnP(constants.VISION_TAPE_OBJECT_POINTS,
-                                              undistorted_points,
-                                              self.calibration_info.camera_matrix,
-                                              None)  # Distortion vector is none because we already undistorted the image
-        else:
-            retval, rvec, tvec = cv2.solvePnP(constants.VISION_TAPE_OBJECT_POINTS,
-                                              corners_subpixel,
-                                              self.calibration_info.camera_matrix,
-                                              self.calibration_info.dist_coeffs)
+        result = {"left": None, "right": None}
 
-        dist = np.linalg.norm(tvec)
-        return rvec, tvec, dist
+        for name, corners, objp in zip(result.keys(), corners_subpixel, (constants.VISION_TAPE_OBJECT_POINTS_LEFT_SIDE, constants.VISION_TAPE_OBJECT_POINTS_RIGHT_SIDE)):
+            # NOTE: If using solvePnPRansac, retvals are retval, rvec, tvec, inliers
+            if self.calibration_info.fisheye:
+                undistorted_points = cv2.fisheye.undistortPoints(corners, self.calibration_info.camera_matrix,
+                                                                 self.calibration_info.dist_coeffs)[1:]
+                result[name] = cv2.solvePnP(objp,
+                                            undistorted_points,
+                                            self.calibration_info.camera_matrix,
+                                            None)  # Distortion vector is none because we already undistorted the image
+            else:
+                result[name] = cv2.solvePnP(objp,
+                                            corners,
+                                            self.calibration_info.camera_matrix,
+                                            self.calibration_info.dist_coeffs)[1:]  # exclude retval, just rvec and tvec
+
+        try:
+            return PoseEstimation(result['left'][0], result['left'][1], result['right'][0], result['right'][1])
+        except TypeError:
+            return None
 
     def _rodrigues_to_euler_angles(self, rvec):
         """

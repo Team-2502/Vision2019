@@ -53,8 +53,15 @@ def get_edges(angle):
             print("right")
         else:
             print("left")
-        cv2.drawContours(image, [box], -1, (127, 10, 0), 3)
+
+        top_index = cnt.reshape(-1, 2)[:, 1].argmin()
+        top_pt = cnt.reshape(-1, 2)[top_index, :]
+
+        print(top_index)
+
+        # cv2.drawContours(image, [box], -1, (127, 10, 0), 3)
         cv2.circle(image, (int(cX), int(cY)), 3, (0, 255, 0), thickness=4)
+        cv2.circle(image, (int(top_pt[0]), int(top_pt[1])), 3, (0, 0, 255))
         break
 
     cv2.imshow('done', image)
