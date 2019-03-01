@@ -118,7 +118,7 @@ VISION_TAPE_OBJECT_POINTS_RIGHT_SIDE = np.array([
 ])
 """Parameter to cv2.solvePnP and cv2.solvePnPRansac"""
 
-CAMERA_ID = int(os.getenv("V19_CAMERA_ID") or 4)
+CAMERA_ID = int(os.getenv("V19_CAMERA_ID") or 0)
 """The id of the camera"""
 
 PORT = int(os.getenv("V19_PORT") or 5800)
