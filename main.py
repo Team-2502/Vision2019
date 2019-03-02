@@ -32,8 +32,8 @@ if __name__ == '__main__':
 
 #    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
 #    cap.set(cv2.CAP_PROP_EXPOSURE, 20)
-    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_auto=1")
-    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_absolute=19")
+    os.system("v4l2-ctl -d /dev/video{} --set-ctrl=exposure_auto=1".format(constants.CAMERA_ID))
+    os.system("v4l2-ctl -d /dev/video{} --set-ctrl=exposure_absolute=19".format(constants.CAMERA_ID))
 
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         contours = pipeline_result.contours
         pose_estimation = pipeline_result.pose_estimation
         tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2
-        rvecs = None if pose_estimation is None else (pose_estimation.left_rvec + pose_estimation.right_rvec) / 2
+        rvecs = None if pose_estimation is None else (pose_estimation.left_rvec)
         euler_angles = None if pose_estimation is None else (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2
         dist = None if pose_estimation is None else np.linalg.norm(tvecs)
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
             cv2.imshow("bitmask", pipeline_result.bitmask)
             print("b")
             
-            contours_img = cv2.drawContours(image, contours, -1, (0, 255, 0), thickness=3)
+            contours_img = cv2.drawContours(image, contours, -1, (255, 255, 0), thickness=3)
             contours_img = cv2.drawContours(image, contours[:1], -1, (255, 0, 0), thickness=3)
             contours_img = cv2.drawContours(image, pipeline_result.trash, -1, (0, 0, 255), thickness=2)
             cv2.imshow("contours", contours_img)
@@ -97,6 +97,15 @@ if __name__ == '__main__':
                 image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
                                       vision_pipeline.calibration_info.dist_coeffs,
                                       rvecs, tvecs, 1)
+                image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
+                                          vision_pipeline.calibration_info.dist_coeffs,
+                                          pose_estimation.left_rvec, tvecs, 1)
+                image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
+                                          vision_pipeline.calibration_info.dist_coeffs,
+                                          pose_estimation.left_rvec, pose_estimation.left_tvec, 1)
+                image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
+                                          vision_pipeline.calibration_info.dist_coeffs,
+                                          pose_estimation.right_rvec, pose_estimation.right_tvec, 1)
                 print("d")
 
                 for corner in pipeline_result.corners[0]:

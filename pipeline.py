@@ -81,7 +81,7 @@ class VisionPipeline:
         :return: The bitmask where the stripes of vision tape are white (1 channel)
         """
         self.logger.debug("Generating bitmask (camera)")
-        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)  # NOTE: Process intensive
         im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
             hsv_image,
             (25, 0, 221),
@@ -140,25 +140,27 @@ class VisionPipeline:
             M = cv2.moments(cnt)
             return int(M["m10"] / M["m00"])
 
-        candidates.sort(key=get_centroid_x)
-
         def is_tape_on_left_side(cnt):
             min_area_box = np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
 
             left_box_point = min(min_area_box, key=lambda row: row[0])
             right_box_point = max(min_area_box, key=lambda row: row[0])
 
-            return not left_box_point[1] < right_box_point[1]
+            return not left_box_point[1] < right_box_point[1] # left point is below right point
 
-        if len(candidates) > 2:
+        candidates.sort(key=get_centroid_x)
+
+        while len(candidates) >= 2:
             if not is_tape_on_left_side(candidates[0]):  # pointing to right
                 trash.append(candidates[0])
                 del candidates[0]  # left-most one should point to left
                 print("removed leftmost for pointing to right")
-            if is_tape_on_left_side(candidates[-1]):
+            elif is_tape_on_left_side(candidates[-1]):
                 trash.append(candidates[-1])
                 del candidates[-1]
                 print("removed rightmost for pointing to left")
+            else:
+                break
 
         candidates.sort(key=lambda cnt: cv2.contourArea(cnt), reverse=True)
 
