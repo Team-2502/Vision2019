@@ -111,7 +111,7 @@ class VisionPipeline:
         """
         self.logger.debug("Finding contours")
         trash = []
-        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
@@ -140,17 +140,17 @@ class VisionPipeline:
             M = cv2.moments(cnt)
             return int(M["m10"] / M["m00"])
 
-        candidates.sort(key=get_centroid_x)
-
         def is_tape_on_left_side(cnt):
             min_area_box = np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
 
             left_box_point = min(min_area_box, key=lambda row: row[0])
             right_box_point = max(min_area_box, key=lambda row: row[0])
 
-            return not left_box_point[1] < right_box_point[1]
+            return not left_box_point[1] < right_box_point[1] # left point is below right point
 
-        if len(candidates) > 2:
+        candidates.sort(key=get_centroid_x)
+
+        while len(candidates) > 2:
             if not is_tape_on_left_side(candidates[0]):  # pointing to right
                 trash.append(candidates[0])
                 del candidates[0]  # left-most one should point to left

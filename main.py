@@ -83,7 +83,7 @@ if __name__ == '__main__':
             cv2.imshow("bitmask", pipeline_result.bitmask)
             print("b")
             
-            contours_img = cv2.drawContours(image, contours, -1, (0, 255, 0), thickness=3)
+            contours_img = cv2.drawContours(image, contours, -1, (255, 255, 0), thickness=3)
             contours_img = cv2.drawContours(image, contours[:1], -1, (255, 0, 0), thickness=3)
             contours_img = cv2.drawContours(image, pipeline_result.trash, -1, (0, 0, 255), thickness=2)
             cv2.imshow("contours", contours_img)

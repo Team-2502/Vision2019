@@ -25,7 +25,7 @@ for angle in range(1, 180, 4):
     euler_angles = None if pose_estimation is None else (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2
     dist = None if pose_estimation is None else np.linalg.norm(tvecs)
 
-    contours_img = cv2.drawContours(image, contours, -1, (0, 255, 0), thickness=3)
+    contours_img = cv2.drawContours(image, contours, -1, (255, 255, 0), thickness=3)
     contours_img = cv2.drawContours(image, contours[:1], -1, (255, 0, 0), thickness=3)
     contours_img = cv2.drawContours(image, pipeline_result.trash, -1, (0, 0, 255), thickness=3)
     cv2.imshow("contours", contours_img)
