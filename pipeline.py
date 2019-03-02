@@ -59,7 +59,7 @@ class VisionPipeline:
         else:
             bitmask = self._generate_bitmask_synthetic(image)
 
-        trash_contours, contours = self._get_contours(bitmask)
+        contours, trash_contours = self._get_contours(bitmask)
         corners_subpixel = self._get_corners(contours, bitmask)
 
         try:
@@ -111,7 +111,7 @@ class VisionPipeline:
         """
         self.logger.debug("Finding contours")
         trash = []
-        _, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
