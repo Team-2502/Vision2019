@@ -14,6 +14,8 @@ args = parser.parse_args()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+
+
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
@@ -32,7 +34,8 @@ objpoints = []  # 3d point in real world space
 imgpoints = []  # 2d points in image plane.
 
 cap = cv2.VideoCapture(constants.CAMERA_ID)
-
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(640))
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(360))
 logging.info("Initialized camera capture stream")
 logger.info("Press spacebar to take an image")
 while len(imgpoints) < args.num_images:

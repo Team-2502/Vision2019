@@ -26,6 +26,9 @@ The location of the pickled CalibrationResults that contains the calibration inf
 It is used for processing the autogen images.
 """
 
+IM_WIDTH = 640
+IM_HEIGHT = 360
+
 # Vision tape dimensions
 VISION_TAPE_LENGTH_IN = 5.5
 """Length of the vision tape (inches)"""

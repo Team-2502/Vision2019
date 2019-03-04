@@ -115,6 +115,21 @@ class VisionPipeline:
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
+        def not_touching_edge(cnt):
+            cnt = cnt.reshape((-1, 2))
+            top_index = cnt[:, 1].argmin()
+            bottom_index = cnt[:, 1].argmax()
+            left_index = cnt[:, 0].argmin()
+            right_index = cnt[:, 0].argmax()
+
+            top_y = cnt[top_index][1]
+            bot_y = cnt[bottom_index][1]
+            left_x = cnt[left_index][0]
+            right_x = cnt[right_index][0]
+
+            return top_y > 10 and bot_y < constants.IM_HEIGHT - 10 and left_x > 10 and right_index < constants.IM_WIDTH - 10
+
+
         is_candidate = []
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
             if contour_hull_area > 10:
@@ -123,8 +138,11 @@ class VisionPipeline:
                     _, _, w, h = cv2.boundingRect(contour)
                     ratio = -constants.VISION_TAPE_ROTATED_WIDTH_FT / constants.VISION_TAPE_ROTATED_HEIGHT_FT
                     if 0.5 * ratio <= w / h <= 1.5 * ratio:
-                        is_candidate.append(True)
-                        continue
+                        if not_touching_edge(contour):
+                            is_candidate.append(True)
+                            continue
+                        else:
+                            print("contour touching edge")
                     else:
                         print("contour has bad proportions")
                 else: 

@@ -36,15 +36,6 @@ for angle in range(1, 180, 4):
     print("c")
     print(pose_estimation)
     if pose_estimation is not None:
-        image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
-                                  vision_pipeline.calibration_info.dist_coeffs,
-                                  pose_estimation.left_rvec, tvecs, 1)
-        image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
-                                  vision_pipeline.calibration_info.dist_coeffs,
-                                  pose_estimation.left_rvec, pose_estimation.left_tvec, 1)
-        image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
-                                  vision_pipeline.calibration_info.dist_coeffs,
-                                  pose_estimation.right_rvec, pose_estimation.right_tvec, 1)
         for corner in pipeline_result.corners[0]:
             corner_img = cv2.circle(image, tuple(corner[0].astype(np.int32)), 3, (255, 0, 0), thickness=3)
 
