@@ -111,7 +111,7 @@ class VisionPipeline:
         """
         self.logger.debug("Finding contours")
         trash = []
-        _, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
@@ -127,7 +127,7 @@ class VisionPipeline:
             left_x = cnt[left_index][0]
             right_x = cnt[right_index][0]
 
-            return top_y > 10 and bot_y < constants.IM_HEIGHT - 10 and left_x > 10 and right_index < constants.IM_WIDTH - 10
+            return top_y > 10 and bot_y < bitmask.shape[0] - 10 and left_x > 10 and right_x < bitmask.shape[1] - 10
 
         is_candidate = []
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
@@ -137,7 +137,7 @@ class VisionPipeline:
                     _, _, w, h = cv2.boundingRect(contour)
                     ratio = -constants.VISION_TAPE_ROTATED_WIDTH_FT / constants.VISION_TAPE_ROTATED_HEIGHT_FT
                     if 0.5 * ratio <= w / h <= 1.5 * ratio:
-                        if not_touching_edge(cnt):
+                        if not_touching_edge(contour):
                             is_candidate.append(True)
                             continue
                         else:
@@ -214,6 +214,49 @@ class VisionPipeline:
 
         contours = [x.reshape(-1, 2) for x in contours[:2]]
 
+        def get_corners_intpixel_alternate(cnt):
+            def removearray(L, arr):
+                ind = 0
+                size = len(L)
+                while ind != size and not np.array_equal(L[ind], arr):
+                    ind += 1
+                if ind != size:
+                    L.pop(ind)
+                else:
+                    raise ValueError('array not found in list.')
+
+            blank = np.zeros(bitmask.shape).astype(np.uint8)
+            cv2.drawContours(blank, [cnt], -1, (255,), thickness=cv2.FILLED)
+            dst = cv2.goodFeaturesToTrack(image=blank, maxCorners=5, qualityLevel=0.16, minDistance=15).reshape(-1, 2)
+            if len(dst) < 5:
+                return get_corners_intpixel(cnt)
+
+            points = list(dst)
+
+            top_point = min(points, key=lambda x: x[1])
+            removearray(points, top_point)
+
+            fake_bottom_point = max(points, key=lambda x: x[1])
+            removearray(points, fake_bottom_point)
+
+            left_point = min(points, key=lambda x: x[0])
+            removearray(points, left_point)
+
+            right_point = max(points, key=lambda x: x[0])
+            removearray(points, right_point)
+
+            leftover_point = points[0]
+
+            top_point, inner_pt, outer_pt, _ = get_corners_intpixel(cnt)
+
+            if left_point[1] > right_point[1]:  # left lower than right
+                inner_pt, outer_pt = right_point, left_point
+            else:
+                inner_pt, outer_pt = left_point, right_point
+
+            bot_point = constants.line_intersect(inner_pt, leftover_point, outer_pt, fake_bottom_point)
+
+            return top_point, inner_pt, outer_pt, bot_point
         def get_corners_intpixel(cnt):
             top_index = cnt[:, 1].argmin()
             bottom_index = cnt[:, 1].argmax()
@@ -230,12 +273,12 @@ class VisionPipeline:
             else:
                 return top_point, left_point, right_point, bot_point
 
-        corners = [np.array(get_corners_intpixel(cnt)).reshape((-1, 1, 2)) for cnt in contours]  # left is 0, right is 1
+        corners = [np.array(get_corners_intpixel_alternate(cnt)).reshape((-1, 1, 2)) for cnt in contours]  # left is 0, right is 1
 
-        corners_subpixel = [cv2.cornerSubPix(bitmask,
+        corners_subpixel = [constants.tape_corners_to_obj_points(*cv2.cornerSubPix(bitmask,
                                              corner.astype(np.float32),
                                              (5, 5), (-1, -1),
-                                             constants.SUBPIXEL_CRITERIA) for corner in corners]
+                                             constants.SUBPIXEL_CRITERIA)) for corner in corners]
 
         return corners_subpixel
 
