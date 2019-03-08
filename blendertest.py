@@ -7,7 +7,7 @@ import pipeline
 vision_pipeline = pipeline.VisionPipeline(True)
 errors_squared=[]
 
-for angle in range(0, 360):
+for angle in range(1, 360):
     angle /= 2
     # Read image from camera
     a = constants.AUTOGEN_FORMAT_STRING.format(angle)

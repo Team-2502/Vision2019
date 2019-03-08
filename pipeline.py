@@ -273,7 +273,7 @@ class VisionPipeline:
             else:
                 return top_point, left_point, right_point, bot_point
 
-        corners = [np.array(get_corners_intpixel_alternate(cnt)).reshape((-1, 1, 2)) for cnt in contours]  # left is 0, right is 1
+        corners = [np.array(get_corners_intpixel(cnt)).reshape((-1, 1, 2)) for cnt in contours]  # left is 0, right is 1
 
         corners_subpixel = [constants.tape_corners_to_obj_points(*cv2.cornerSubPix(bitmask,
                                              corner.astype(np.float32),
