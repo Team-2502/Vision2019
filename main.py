@@ -113,6 +113,7 @@ def main():
                 try:
                     conn.sendall(generate_socket_msg(tvecs[0][0], tvecs[2][0],  euler_angles[1]))
                 except (ConnectionResetError, BrokenPipeError):
+                    vision_pipeline.last_centroid_x = []
                     s.listen(100)
                     print("Waiting for socket connection on port {} . . .".format(constants.PORT))
                     conn, addr = s.accept()
