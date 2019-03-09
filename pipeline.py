@@ -19,6 +19,13 @@ EulerAngles = collections.namedtuple("EulerAngles", ['left', 'right'])
 
 PipelineResults._field_types = {'bitmask': np.array, 'contours': List[np.array], 'corners': List[np.array],
                                 'pose_estimation': PoseEstimation, 'euler_angles': EulerAngles}
+
+def avg(iter):
+    try:
+        return sum(iter)/len(iter)
+    except ZeroDivisionError:
+        return 0
+
 class VisionPipeline:
     """Contains methods and fields necessary to estimate the pose of the vision target relative to the camera"""
 
@@ -30,6 +37,7 @@ class VisionPipeline:
         """
         self.logger = logging.getLogger("VisionPipeline")
         self.synthetic = synthetic
+        self.last_centroid_x = []
         if synthetic and calib_fname is None:
             calib_fname = constants.BLENDER_CALIBRATION_INFO_LOCATION
         if calib_fname is None:
@@ -84,10 +92,13 @@ class VisionPipeline:
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         im = cv2.inRange(  # TODO: Make constants for lower and upper bounds
             hsv_image,
-            (25, 0, 221),
-            (279, 255, 255)
+            # (25, 0, 221),
+            # (279, 255, 255)
+            (0, 0, 146),
+            (360, 255, 255)
+
         )
-        #closing = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((3, 3)))
+        # closing = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((3, 3)))
         return im
 
     def _generate_bitmask_synthetic(self, image: np.array) -> np.array:
@@ -115,6 +126,10 @@ class VisionPipeline:
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
+        height = bitmask.shape[0]
+        width = bitmask.shape[1]
+        print(height, width)
+
         def not_touching_edge(cnt):
             cnt = cnt.reshape((-1, 2))
             top_index = cnt[:, 1].argmin()
@@ -129,6 +144,7 @@ class VisionPipeline:
 
             return top_y > 10 and bot_y < bitmask.shape[0] - 10 and left_x > 10 and right_x < bitmask.shape[1] - 10
 
+        # Filtering contours
         is_candidate = []
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
             if contour_hull_area > 10:
@@ -144,7 +160,7 @@ class VisionPipeline:
                             print("contour cut off")
                     else:
                         print("contour has bad proportions")
-                else: 
+                else:
                     print("contour is not full")
             else:
                 print("contour is smolboi")
@@ -154,8 +170,10 @@ class VisionPipeline:
         candidates = [convex_hulls[i] for i, contour in enumerate(contours) if is_candidate[i]]
 
         def get_centroid_x(cnt: np.array) -> int:
-            M = cv2.moments(cnt)
-            return int(M["m10"] / M["m00"])
+            all_x = cnt.reshape((-1, 2))[:, 0]
+            return int(np.sum(all_x)/all_x.shape)
+            # M = cv2.moments(cnt)
+            # return int(M["m10"] / M["m00"])
 
         def is_tape_on_left_side(cnt):
             min_area_box = np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
@@ -163,7 +181,7 @@ class VisionPipeline:
             left_box_point = min(min_area_box, key=lambda row: row[0])
             right_box_point = max(min_area_box, key=lambda row: row[0])
 
-            return left_box_point[1] > right_box_point[1] # left point is below right point
+            return left_box_point[1] > right_box_point[1]  # left point is below right point
 
         candidates.sort(key=get_centroid_x)
 
@@ -172,36 +190,52 @@ class VisionPipeline:
                 if not is_tape_on_left_side(candidates[0]):  # pointing to right
                     trash.append(candidates[0])
                     del candidates[0]  # left-most one should point to left
-                    print("removed leftmost for pointing to right")
+                    # print("removed leftmost for pointing to right")
                 if is_tape_on_left_side(candidates[-1]):
                     trash.append(candidates[-1])
                     del candidates[-1]
-                    print("removed rightmost for pointing to left")
+                    # print("removed rightmost for pointing to left")
             except Exception as e:
-                print("whoops 4", e)
-
-
+                # print("whoops 4", e)
+                #
+                pass
 
         if len(candidates) > 1:
             contour_pair_centroids = {}
-            
-            for i, left_cnt, right_cnt in zip(range(len(candidates)), candidates[::2], candidates[1::2]):
-                contour_pair_centroids[get_centroid_x(np.concatenate((left_cnt, right_cnt)))] = i
-           
-            pair_num = contour_pair_centroids[min(contour_pair_centroids.keys(), key = lambda x: 320 - x)]
-            
-            left_index = pair_num * 2
-            right_index = left_index + 1
-            
-            trash.extend(candidates[:left_index])
-            trash.extend(candidates[right_index + 1:])
-            candidates = [candidates[left_index], candidates[right_index]]
-            #scandidates.sort(key=get_centroid_x)
-            print(is_tape_on_left_side(candidates[0]))
-        else:
-             return [], candidates + trash
 
-        return candidates, trash  # left guaranteed to be first
+            # Iterates through contours, two at a time, while counting number of pairs already iterated through
+            for i, left_cnt, right_cnt in zip(range(len(candidates)), candidates[::2], candidates[1::2]):
+                # Join the two contours and get the centroid of _that_ and stick it in as the key of contour_pair_centroids 
+                centroid = get_centroid_x(np.concatenate((left_cnt, right_cnt)))
+                contour_pair_centroids[centroid] = i
+
+            if len(contour_pair_centroids) > 0:  # hmmmmm how could this happen?
+                if len(self.last_centroid_x) == 0:
+                    self.last_centroid_x.append(min(contour_pair_centroids.keys(), key=lambda x: 320 / 2 - x))
+                    avg_X = avg(self.last_centroid_x)
+                else:
+                    if len(self.last_centroid_x) > 5:
+                        del self.last_centroid_x[0]
+                    avg_X = avg(self.last_centroid_x)
+                    self.last_centroid_x.append(min(contour_pair_centroids.keys(),
+                                               key=lambda x: np.math.fabs(avg_X - x)))  # hmmm pt 2
+
+                pair_num = contour_pair_centroids[self.last_centroid_x[-1]]
+
+                left_index = pair_num * 2  # maybe hmm but probably correct
+                right_index = left_index + 1
+
+                trash.extend(candidates[:left_index])
+                trash.extend(candidates[right_index + 1:])
+                candidates = [candidates[left_index], candidates[right_index]]
+                # scandidates.sort(key=get_centroid_x)
+                print(is_tape_on_left_side(candidates[0]))
+
+                return candidates, trash  # left guaranteed to be first
+
+        self.last_centroid_x = []
+        return [], candidates + trash
+
 
     def _get_corners(self, contours: List[np.array], bitmask: np.array) -> List[np.array]:
         """
@@ -257,6 +291,7 @@ class VisionPipeline:
             bot_point = constants.line_intersect(inner_pt, leftover_point, outer_pt, fake_bottom_point)
 
             return top_point, inner_pt, outer_pt, bot_point
+
         def get_corners_intpixel(cnt):
             top_index = cnt[:, 1].argmin()
             bottom_index = cnt[:, 1].argmax()
@@ -276,11 +311,13 @@ class VisionPipeline:
         corners = [np.array(get_corners_intpixel(cnt)).reshape((-1, 1, 2)) for cnt in contours]  # left is 0, right is 1
 
         corners_subpixel = [constants.tape_corners_to_obj_points(*cv2.cornerSubPix(bitmask,
-                                             corner.astype(np.float32),
-                                             (5, 5), (-1, -1),
-                                             constants.SUBPIXEL_CRITERIA)) for corner in corners]
+                                                                                   corner.astype(np.float32),
+                                                                                   (5, 5), (-1, -1),
+                                                                                   constants.SUBPIXEL_CRITERIA)) for corner
+                            in corners]
 
         return corners_subpixel
+
 
     def _estimate_pose(self, corners_subpixel: List[np.array]) -> PoseEstimation:
         """
@@ -293,7 +330,8 @@ class VisionPipeline:
 
         result = {"left": None, "right": None}
 
-        for name, corners, objp in zip(result.keys(), corners_subpixel, (constants.VISION_TAPE_OBJECT_POINTS_LEFT_SIDE, constants.VISION_TAPE_OBJECT_POINTS_RIGHT_SIDE)):
+        for name, corners, objp in zip(result.keys(), corners_subpixel, (
+        constants.VISION_TAPE_OBJECT_POINTS_LEFT_SIDE, constants.VISION_TAPE_OBJECT_POINTS_RIGHT_SIDE)):
             # NOTE: If using solvePnPRansac, retvals are retval, rvec, tvec, inliers
             if self.calibration_info.fisheye:
                 undistorted_points = cv2.fisheye.undistortPoints(corners, self.calibration_info.camera_matrix,
@@ -312,6 +350,7 @@ class VisionPipeline:
             return PoseEstimation(result['left'][0], result['left'][1], result['right'][0], result['right'][1])
         except TypeError:
             return None
+
 
     def _rodrigues_to_euler_angles(self, rvec):
         """
