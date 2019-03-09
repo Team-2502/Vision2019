@@ -30,6 +30,7 @@ class VisionPipeline:
         """
         self.logger = logging.getLogger("VisionPipeline")
         self.synthetic = synthetic
+        self.last_centroid_x = None
         if synthetic and calib_fname is None:
             calib_fname = constants.BLENDER_CALIBRATION_INFO_LOCATION
         if calib_fname is None:
@@ -115,6 +116,9 @@ class VisionPipeline:
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
+        height = bitmask.shape[0]
+        width = bitmask.shape[1]
+        print(height, width)
         def not_touching_edge(cnt):
             cnt = cnt.reshape((-1, 2))
             top_index = cnt[:, 1].argmin()
@@ -127,7 +131,7 @@ class VisionPipeline:
             left_x = cnt[left_index][0]
             right_x = cnt[right_index][0]
 
-            return top_y > 10 and bot_y < constants.IM_HEIGHT - 10 and left_x > 10 and right_index < constants.IM_WIDTH - 10
+            return top_y > 10 and bot_y < bitmask.shape[0] - 10 and left_x > 10 and right_index < bitmask.shape[1] - 10
 
         is_candidate = []
         for contour, contour_hull_area in zip(contours, contour_hull_areas):
@@ -137,7 +141,7 @@ class VisionPipeline:
                     _, _, w, h = cv2.boundingRect(contour)
                     ratio = -constants.VISION_TAPE_ROTATED_WIDTH_FT / constants.VISION_TAPE_ROTATED_HEIGHT_FT
                     if 0.5 * ratio <= w / h <= 1.5 * ratio:
-                        if not_touching_edge(cnt):
+                        if not_touching_edge(contour):
                             is_candidate.append(True)
                             continue
                         else:
@@ -185,20 +189,31 @@ class VisionPipeline:
         if len(candidates) > 1:
             contour_pair_centroids = {}
             
+            
+            # Iterates through contours, two at a time, while counting number of pairs already iterated through
             for i, left_cnt, right_cnt in zip(range(len(candidates)), candidates[::2], candidates[1::2]):
-                contour_pair_centroids[get_centroid_x(np.concatenate((left_cnt, right_cnt)))] = i
-           
-            pair_num = contour_pair_centroids[min(contour_pair_centroids.keys(), key = lambda x: 320 - x)]
-            
-            left_index = pair_num * 2
-            right_index = left_index + 1
-            
-            trash.extend(candidates[:left_index])
-            trash.extend(candidates[right_index + 1:])
-            candidates = [candidates[left_index], candidates[right_index]]
-            #scandidates.sort(key=get_centroid_x)
-            print(is_tape_on_left_side(candidates[0]))
+                # Join the two contours and get the centroid of _that_ and stick it in as the key of contour_pair_centroids 
+                centroid = get_centroid_x(np.concatenate((left_cnt, right_cnt)))
+                contour_pair_centroids[centroid] = i
+            if len(contour_pair_centroids) > 0:
+                if self.last_centroid_x == None:
+                    self.last_centroid_x = min(contour_pair_centroids.keys(), key = lambda x: 320/2 - x)
+                else:
+                    self.last_centroid_x = min(contour_pair_centroids.keys(), key = lambda x: np.math.fabs(self.last_centroid_x - x))
+                    
+                pair_num = contour_pair_centroids[self.last_centroid_x]
+                
+                left_index = pair_num * 2
+                right_index = left_index + 1
+                
+                trash.extend(candidates[:left_index])
+                trash.extend(candidates[right_index + 1:])
+                candidates = [candidates[left_index], candidates[right_index]]
+                #scandidates.sort(key=get_centroid_x)
+                print(is_tape_on_left_side(candidates[0]))
+                
         else:
+             self.last_centroid_x = None
              return [], candidates + trash
 
         return candidates, trash  # left guaranteed to be first
