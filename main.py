@@ -75,7 +75,7 @@ def main():
         pipeline_result = vision_pipeline.process_image(image)
         contours = pipeline_result.contours
         pose_estimation = pipeline_result.pose_estimation
-        tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2 + np.array([9.5 / 12, 0, 0]).reshape((3, 1))
+        tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2 + np.array([8.5 / 12, 0, 0]).reshape((3, 1))
 
         rvecs = None if pose_estimation is None else (pose_estimation.left_rvec )
         euler_angles = None if pose_estimation is None else (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2

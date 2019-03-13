@@ -122,7 +122,7 @@ class VisionPipeline:
         """
         self.logger.debug("Finding contours")
         trash = []
-        contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, hierarchy = cv2.findContours(bitmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         convex_hulls = [cv2.convexHull(contour) for contour in contours]
         contour_hull_areas = [cv2.contourArea(hull) for hull in convex_hulls]
 
@@ -211,7 +211,7 @@ class VisionPipeline:
 
             if len(contour_pair_centroids) > 0:  # hmmmmm how could this happen?
                 if len(self.last_centroid_x) == 0:
-                    self.last_centroid_x.append(min(contour_pair_centroids.keys(), key=lambda x: 320 / 2 - x))
+                    self.last_centroid_x.append(min(contour_pair_centroids.keys(), key=lambda x: np.math.fabs(320/4 - x)))
                     avg_X = avg(self.last_centroid_x)
                 else:
                     if len(self.last_centroid_x) > 5:
