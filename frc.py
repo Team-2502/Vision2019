@@ -93,7 +93,7 @@ def harris_test():
     base_image = cv2.imread("./2019_vision_sample.png")  # TODO: fix
 
     base_img_gray = cv2.cvtColor(base_image, cv2.COLOR_BGR2GRAY)
-
+    print("base img shape", base_img_gray.shape)
     dst = cv2.cornerHarris(src=base_img_gray, blockSize=2, ksize=3, k=0.15)
     harrisy = np.zeros(dst.shape)
     print(harrisy.shape)
@@ -565,3 +565,4 @@ def pnp_test():
         angle += delta
     out.release()
 
+harris_test()

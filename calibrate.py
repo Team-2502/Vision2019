@@ -33,6 +33,8 @@ imgpoints = []  # 2d points in image plane.
 
 cap = cv2.VideoCapture(constants.CAMERA_ID)
 
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 logging.info("Initialized camera capture stream")
 logger.info("Press spacebar to take an image")
 while len(imgpoints) < args.num_images:

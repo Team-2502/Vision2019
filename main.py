@@ -15,7 +15,7 @@ parser.add_argument("--yes_gui", help="invert camera image", action="store_false
 args = parser.parse_args()
 
 
-if __name__ == '__main__':
+def main():
     sockets_on = True
 
     if args.no_sockets:
@@ -24,9 +24,12 @@ if __name__ == '__main__':
     use_gui = not args.yes_gui
 
     cap = cv2.VideoCapture(constants.CAMERA_ID)
-#    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_absolute=19")
-    # cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-    # cap.set(cv2.CAP_PROP_EXPOSURE, 20)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
+#    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+#    cap.set(cv2.CAP_PROP_EXPOSURE, 20)
+    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_auto=1")
+    os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_absolute=19")
 
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
@@ -50,39 +53,44 @@ if __name__ == '__main__':
         if use_gui:
             cv2.imshow("cam", image)
         print("a")
-        # Invert image (assuming that tapes are black and background is white)
+        # Invert image (rassuming that tapes are black and background is white)
         if args.invert:
             image = cv2.bitwise_not(image)
         if use_gui:
             cv2.imshow("img", image)
 
         # Process image
-        contours, corners_subpixel, rvecs, tvecs, dist, euler_angles = vision_pipeline.process_image(image)
+        pipeline_result = vision_pipeline.process_image(image)
+        contours = pipeline_result.contours
+        pose_estimation = pipeline_result.pose_estimation
+        tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2 + np.array([8.5 / 12, 0, 0]).reshape((3, 1))
+
+        rvecs = None if pose_estimation is None else (pose_estimation.left_rvec )
+        euler_angles = None if pose_estimation is None else (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2
+        dist = None if pose_estimation is None else np.linalg.norm(tvecs)
 
         if use_gui:
+            cv2.imshow("bitmask", pipeline_result.bitmask)
             print("b")
             
-            contours_img = cv2.drawContours(image, contours, -1, (0, 255, 0), thickness=3)
+            contours_img = cv2.drawContours(image, contours, -1, (255, 255, 0), thickness=3)
             contours_img = cv2.drawContours(image, contours[:1], -1, (255, 0, 0), thickness=3)
+            contours_img = cv2.drawContours(image, pipeline_result.trash, -1, (0, 0, 255), thickness=2)
             cv2.imshow("contours", contours_img)
 
         center = np.array([
             [0, 0, 0],
         ], dtype=np.float32)
         print("c")
-        if rvecs is not None:
+        if pose_estimation is not None:
             if use_gui:
-                imagePoints, jacobian = cv2.projectPoints(center, rvecs, tvecs, vision_pipeline.calibration_info.camera_matrix,
-                                                      vision_pipeline.calibration_info.dist_coeffs)
-                imagePoints = imagePoints.reshape(-1, 2)
                 image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
                                       vision_pipeline.calibration_info.dist_coeffs,
                                       rvecs, tvecs, 1)
                 print("d")
-                corner_img = cv2.circle(image, tuple(imagePoints[0].astype(np.int32)), 3, (66, 244, 113), thickness=3)
 
-                for corner in corners_subpixel:
-                    corner_img = cv2.circle(corner_img, tuple(corner), 3, (255, 0, 0), thickness=3)
+                for corner in pipeline_result.corners[0]:
+                    corner_img = cv2.circle(image, tuple(corner[0].astype(np.int32)), 3, (255, 0, 0), thickness=3)
 
                 cv2.imshow("corner_img", corner_img)
                 print("e")
@@ -104,3 +112,7 @@ if __name__ == '__main__':
         print("fps: ", (1 / (time.time() - start)))
         if use_gui:
             cv2.waitKey(1000 // 30)
+
+
+if __name__ == '__main__':
+    main()
