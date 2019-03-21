@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     if sockets_on:
         NetworkTables.initialize(server='10.25.2.2')
-        vision_table = NetworkTables.getTable('Vision2019')
+        vision_table = NetworkTables.getTable('vision_data')
 
 
     def exit():
