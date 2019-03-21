@@ -3,21 +3,16 @@ import time
 import pipeline
 import cv2
 import numpy as np
-import socket
 import argparse
 import constants
+from networktables import NetworkTables
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--no_sockets", help="Does not attempt to transmit data via sockets", action="store_true")
+parser.add_argument("--no_sockets", help="Does not attempt to transmit data via network tables", action="store_true")
 parser.add_argument("--invert", help="invert camera image", action="store_true")
 parser.add_argument("--yes_gui", help="invert camera image", action="store_false")
 args = parser.parse_args()
-
-def generate_socket_msg(x, y, angle):
-    return bytes(str(x), 'utf-8') + b',' + \
-           bytes(str(y), 'utf-8') + b',' + \
-           bytes(str(angle), 'utf-8') + b'\n'
 
 
 if __name__ == '__main__':
@@ -36,24 +31,17 @@ if __name__ == '__main__':
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
     if sockets_on:
-        HOST, PORT = "", constants.PORT
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((HOST, PORT))
+        NetworkTables.initialize(server='10.25.2.2')
+        vision_table = NetworkTables.getTable('Vision2019')
 
 
     def exit():
         cv2.destroyAllWindows()
         cap.release()
-        if sockets_on:
-            s.close()
-
 
     atexit.register(exit)
-    if sockets_on:
-        s.listen(100)
-        print("Waiting for socket connection on port {} . . .".format(constants.PORT))
-        conn, addr = s.accept()
-        print(addr)
+
+    # TODO Wait for network tables to initalize
 
     while True:
         # Read image from camera
@@ -101,24 +89,17 @@ if __name__ == '__main__':
             # print(euler_angles)
             print("dist: {0:0.2f} | angle (rad): {1:0.2f}".format(dist, euler_angles[1]))
 
+            # TODO Just use a number array
             if sockets_on:
-                try:
-                    conn.sendall(generate_socket_msg(tvecs[0][0], tvecs[2][0],  euler_angles[1]))
-                except (ConnectionResetError, BrokenPipeError):
-                    s.listen(100)
-                    print("Waiting for socket connection on port {} . . .".format(constants.PORT))
-                    conn, addr = s.accept()
-                    print(addr)
-            print("f")
-        elif rvecs is None and sockets_on:
-            try:
-                conn.sendall(generate_socket_msg(-9001, -9001, -9001))
+                vision_table.putNumber("tvecs1", tvecs[0][0])
+                vision_table.putNumber("tvecs2", tvecs[2][0])
+                vision_table.putNumber("angle", euler_angles[1])
 
-            except (ConnectionResetError, BrokenPipeError):
-                s.listen(100)
-                print("Waiting for socket connection on port {} . . .".format(constants.PORT))
-                conn, addr = s.accept()
-                print(addr)
+        elif rvecs is None and sockets_on:
+            vision_table.putNumber("tvecs1", -9001)
+            vision_table.putNumber("tvecs2", -9001)
+            vision_table.putNumber("angle", -9001)
+
         print("loop")
         print("fps: ", (1 / (time.time() - start)))
         if use_gui:
