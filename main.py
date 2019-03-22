@@ -35,7 +35,7 @@ def main():
 
     if sockets_on:
         NetworkTables.initialize(server='10.25.2.2')
-        vision_table = NetworkTables.getTable('vision_data')
+        vision_table = NetworkTables.getTable('SmartDashboard')
 
 
     def exit():
