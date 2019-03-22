@@ -6,13 +6,23 @@ import numpy as np
 import argparse
 import constants
 from networktables import NetworkTables
+from networktables.util import ntproperty
 import os
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--no_sockets", help="Does not attempt to transmit data via network tables", action="store_true")
 parser.add_argument("--invert", help="invert camera image", action="store_true")
 parser.add_argument("--yes_gui", help="invert camera image", action="store_false")
 args = parser.parse_args()
+
+class VisionClient():
+    tvecs1 = ntproperty("/SmartDashboard/tvecs1", 0)
+    tvecs2 = ntproperty("/SmartDashboard/tvecs2", 0)
+    angle = ntproperty("/SmartDashboard/angle", 0)
+    
 
 
 def main():
@@ -35,7 +45,7 @@ def main():
 
     if sockets_on:
         NetworkTables.initialize(server='10.25.2.2')
-        vision_table = NetworkTables.getTable('SmartDashboard')
+        vision_client = VisionClient()
 
 
     def exit():
@@ -99,14 +109,14 @@ def main():
 
             # TODO Just use a number array
             if sockets_on:
-                vision_table.putNumber("tvecs1", tvecs[0][0])
-                vision_table.putNumber("tvecs2", tvecs[2][0])
-                vision_table.putNumber("angle", euler_angles[1])
+                vision_client.tvecs1=tvecs[0][0]
+                vision_client.tvecs2=tvecs[2][0]
+                vision_client.angle=euler_angles[1]
 
         elif rvecs is None and sockets_on:
-            vision_table.putNumber("tvecs1", -9001)
-            vision_table.putNumber("tvecs2", -9001)
-            vision_table.putNumber("angle", -9001)
+            vision_client.tvecs1 = -9001
+            vision_client.tvecs2 = -9001
+            vision_client.angle = -9001
 
         print("loop")
         print("fps: ", (1 / (time.time() - start)))
