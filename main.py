@@ -22,6 +22,7 @@ class VisionClient():
     tvecs1 = ntproperty("/SmartDashboard/tvecs1", 0)
     tvecs2 = ntproperty("/SmartDashboard/tvecs2", 0)
     angle = ntproperty("/SmartDashboard/angle", 0)
+    connected = ntproperty("/SmartDashboard/connected", 0)
     
 
 
@@ -46,7 +47,7 @@ def main():
     if sockets_on:
         NetworkTables.initialize(server='10.25.2.2')
         vision_client = VisionClient()
-
+        vision_client.connected = True
 
     def exit():
         cv2.destroyAllWindows()
