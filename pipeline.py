@@ -128,8 +128,7 @@ class VisionPipeline:
 
         height = bitmask.shape[0]
         width = bitmask.shape[1]
-        print(height, width)
-
+        
         def not_touching_edge(cnt):
             cnt = cnt.reshape((-1, 2))
             top_index = cnt[:, 1].argmin()
@@ -157,13 +156,17 @@ class VisionPipeline:
                             is_candidate.append(True)
                             continue
                         else:
-                            print("contour cut off")
+                            #print("contour cut off")
+                            pass
                     else:
-                        print("contour has bad proportions")
+                        #print("contour has bad proportions")
+                        pass
                 else:
-                    print("contour is not full")
+                    #print("contour is not full")
+                    pass
             else:
-                print("contour is smolboi")
+                #print("contour is smolboi")
+                pass
             is_candidate.append(False)
             trash.append(contour)
 

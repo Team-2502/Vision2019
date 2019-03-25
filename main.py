@@ -12,7 +12,7 @@ import logging
 import threading
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--no_sockets", help="Does not attempt to transmit data via network tables", action="store_true")
@@ -30,7 +30,7 @@ class VisionClient():
 def main():
     cond = threading.Condition()
     notified = [False]
-
+    
     def connectionListener(connected, info):
         print(info, '; Connected=%s' % connected)
         with cond:
@@ -55,6 +55,7 @@ def main():
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
 
     if sockets_on:
+        print("Starting connection")
         NetworkTables.initialize(server='10.25.2.2')
         NetworkTables.addConnectionListener(connectionListener, immediateNotify=True)
         with cond:
@@ -63,7 +64,7 @@ def main():
                 cond.wait()
         print("Connected")
         vision_client = VisionClient()
-        vision_client.connected = True
+        vision_client.connected = 5
 
     def exit():
         cv2.destroyAllWindows()
@@ -79,7 +80,7 @@ def main():
         start = time.time()
         if use_gui:
             cv2.imshow("cam", image)
-        print("a")
+        #print("a")
         # Invert image (rassuming that tapes are black and background is white)
         if args.invert:
             image = cv2.bitwise_not(image)
@@ -98,7 +99,7 @@ def main():
 
         if use_gui:
             cv2.imshow("bitmask", pipeline_result.bitmask)
-            print("b")
+            #print("b")
             
             contours_img = cv2.drawContours(image, contours, -1, (255, 255, 0), thickness=3)
             contours_img = cv2.drawContours(image, contours[:1], -1, (255, 0, 0), thickness=3)
@@ -108,19 +109,19 @@ def main():
         center = np.array([
             [0, 0, 0],
         ], dtype=np.float32)
-        print("c")
+        #print("c")
         if pose_estimation is not None:
             if use_gui:
                 image = cv2.drawFrameAxes(image, vision_pipeline.calibration_info.camera_matrix,
                                       vision_pipeline.calibration_info.dist_coeffs,
                                       rvecs, tvecs, 1)
-                print("d")
+                #print("d")
 
                 for corner in pipeline_result.corners[0]:
                     corner_img = cv2.circle(image, tuple(corner[0].astype(np.int32)), 3, (255, 0, 0), thickness=3)
 
                 cv2.imshow("corner_img", corner_img)
-                print("e")
+                #print("e")
             # print(euler_angles)
             print("dist: {0:0.2f} | angle (rad): {1:0.2f}".format(dist, euler_angles[1]))
 
@@ -135,8 +136,8 @@ def main():
             vision_client.tvecs2 = -9001
             vision_client.angle = -9001
 
-        print("loop")
-        print("fps: ", (1 / (time.time() - start)))
+        #print("loop")
+        #print("fps: ", (1 / (time.time() - start)))
         if use_gui:
             cv2.waitKey(1000 // 30)
 
