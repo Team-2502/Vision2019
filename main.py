@@ -9,6 +9,8 @@ from networktables import NetworkTables
 from networktables.util import ntproperty
 import os
 import logging
+import threading
+
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -23,10 +25,18 @@ class VisionClient():
     tvecs2 = ntproperty("/SmartDashboard/tvecs2", 0)
     angle = ntproperty("/SmartDashboard/angle", 0)
     connected = ntproperty("/SmartDashboard/connected", 0)
-    
 
 
 def main():
+    cond = threading.Condition()
+    notified = [False]
+
+    def connectionListener(connected, info):
+        print(info, '; Connected=%s' % connected)
+        with cond:
+            notified[0] = True
+            cond.notify()
+
     sockets_on = True
 
     if args.no_sockets:
@@ -46,6 +56,12 @@ def main():
 
     if sockets_on:
         NetworkTables.initialize(server='10.25.2.2')
+        NetworkTables.addConnectionListener(connectionListener, immediateNotify=True)
+        with cond:
+            print("Waiting")
+            if not notified[0]:
+                cond.wait()
+        print("Connected")
         vision_client = VisionClient()
         vision_client.connected = True
 
