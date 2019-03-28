@@ -53,7 +53,7 @@ def main():
     os.system("v4l2-ctl -d /dev/video0 --set-ctrl=exposure_absolute=19")
 
     vision_pipeline = pipeline.VisionPipeline(False, calib_fname=constants.CALIBRATION_FILE_LOCATION)
-
+    print("about to start connection")
     if sockets_on:
         print("Starting connection")
         NetworkTables.initialize(server='10.25.2.2')
@@ -73,7 +73,7 @@ def main():
     atexit.register(exit)
 
     # TODO Wait for network tables to initalize
-
+    print("connected  probably")
     while True:
         # Read image from camera
         _, image = cap.read()
@@ -91,7 +91,7 @@ def main():
         pipeline_result = vision_pipeline.process_image(image)
         contours = pipeline_result.contours
         pose_estimation = pipeline_result.pose_estimation
-        tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2 + np.array([8.5 / 12, 0, 0]).reshape((3, 1))
+        tvecs = None if pose_estimation is None else (pose_estimation.left_tvec + pose_estimation.right_tvec) / 2 + np.array([11 / 12, 0, 0]).reshape((3, 1))
 
         rvecs = None if pose_estimation is None else (pose_estimation.left_rvec )
         euler_angles = None if pose_estimation is None else (pipeline_result.euler_angles.left + pipeline_result.euler_angles.right) / 2

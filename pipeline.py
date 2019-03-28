@@ -94,8 +94,8 @@ class VisionPipeline:
             hsv_image,
             # (25, 0, 221),
             # (279, 255, 255)
-            (0, 0, 146),
-            (360, 255, 255)
+            (57, 0, 230),
+            (88, 255, 255)
 
         )
         # closing = cv2.morphologyEx(im, cv2.MORPH_CLOSE, np.ones((3, 3)))
